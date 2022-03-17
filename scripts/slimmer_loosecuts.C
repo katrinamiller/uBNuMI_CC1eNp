@@ -76,7 +76,7 @@ void slimmer_loosecuts(TString fname)
        //std::cout << "weightGenie : " << weightsGenie->at(0) << std::endl;
      }
 
-
+     // need to update to include trk_energy cut 
      if ( (swtrig_pre==1) && (nslice == 1) && (reco_nu_vtx_sce_x>=10)  && (reco_nu_vtx_sce_x<=246) && (reco_nu_vtx_sce_y>=-106) && (reco_nu_vtx_sce_y<=106) && (reco_nu_vtx_sce_z>=10)  && (reco_nu_vtx_sce_z<=1026) && (contained_fraction > 0.9) && (n_tracks_contained>0) && (n_showers_contained==1) && (shr_energy_tot_cali > 0.07) && (shr_score<0.3) && (trkpid<0.35) && (shrmoliereavg<15) && (shr_tkfit_dedx_Y<7) && (tksh_distance<12) ) { 
        newtree->Fill();
      } 

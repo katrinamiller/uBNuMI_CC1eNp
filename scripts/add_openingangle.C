@@ -69,7 +69,7 @@ float get_max_proton_idx(std::vector<float> *mc_pdg, std::vector<float> mc_p){
 void add_openingangle() { 
 
 	
-	TFile*f = new TFile("/uboone/data/users/kmiller/ntuples/run1/nuepresel/prodgenie_numi_uboone_overlay_dirt_fhc_mcc9_run1_v28_all_snapshot.root", "UPDATE"); 
+	TFile*f = new TFile("/uboone/data/users/kmiller/ntuples/run2/neutrinoselection_filt_55f2f593-7f5d-4b16-91ba-ea0abcc48e22.root", "UPDATE"); 
 	TTree* t = (TTree*)f->Get("nuselection/NeutrinoSelectionFilter"); 
 	TDirectory* d = (TDirectory*)f->Get("nuselection"); 
 	
