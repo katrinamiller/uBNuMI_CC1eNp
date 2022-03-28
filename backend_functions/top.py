@@ -167,20 +167,28 @@ labels = {
     'nuebar_1eNp' : ['$\\bar{\\nu}_e$ CC0$\pi$Np', 'gold']
 }
 ########################################################################
-# MC Stat Error Counting (unweighted, unscaled histogram)
-def mc_stat_error(var, nbins, xlow, xhigh, datasets): 
+# MC Stat Error Counting -- sum of the weights 
+def mc_stat_error(var, bins, xlow, xhigh, datasets): 
     
     #### combine the datasets - cuts should already be applied ####
     selected = pd.concat(datasets, ignore_index=True, sort=True)
-
-    ##### MC statistical uncertainty ####
-    n, b, p = plt.hist(selected[var], nbins, histtype='bar', range=[xlow, xhigh], stacked=True)     # plot the histogram 
-    plt.close()
     
-    mc_total_error = np.sqrt(n)
+    mc_stat = []
+    ncv = [] # should be the total (or background subtracted) event rate 
+    
+    for i in range(len(bins)-1):
+
+        if i==len(bins)-2: # if the last bin 
+            bin_query = var+' >= '+str(bins[i])+' and '+var+' <= '+str(bins[i+1])
+        
+        else: 
+            bin_query = var+' >= '+str(bins[i])+' and '+var+' < '+str(bins[i+1])
+
+        mc_stat.append( np.sqrt(sum(selected.query(bin_query).totweight_data ** 2)) )
+        ncv.append(sum(selected.query(bin_query).totweight_data))
 
     #### compute the percent stat error ####
-    mc_percent_error = [y/z for y, z in zip(mc_total_error, n)]
+    mc_percent_error = [y/z for y, z in zip(mc_stat, ncv)]
     
     return mc_percent_error
 ########################################################################

@@ -164,7 +164,6 @@ def event_counts(datasets, xvar, xmin, xmax, cuts, ext_norm, mc_norm, plot_data=
         
     counts = {
         'outfv' : round(np.nansum(datasets['outfv'].query(q)[mc_norm]), 1), 
-        #'comic' : round(np.nansum(datasets['cosmic'].query(q)[mc_norm]), 1),
         'numu_NC_Npi0' : round(np.nansum(datasets['infv'].query(numu_NC_Npi0+" and "+ q)[mc_norm]), 1),
         'numu_CC_Npi0' : round(np.nansum(datasets['infv'].query(numu_CC_Npi0+" and "+ q)[mc_norm]), 1), 
         'numu_NC_0pi0' : round(np.nansum(datasets['infv'].query(numu_NC_0pi0+" and "+ q)[mc_norm]), 1),
@@ -586,19 +585,6 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', pot
 # NEED TO ADD: GENIE UNISIMS, NON-nueCC DET SYS
 def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_scale=None, save=False, save_label=None, log=False, x_label=None, y_label=None, ymax=None, sys=False, xtext=None, ytext=None): 
     
-    ############################
-    # str var --> variable on x
-    # nbins --> # of bins in histogram 
-    # xlow, xhigh --> histogram x bounds
-    # str cuts --> cuts query applied to data set (string)
-    # datasets = list of [df_infv, df_outfv, df_cosmic, df_ext, df_data] in that order 
-    # str save_label --> what label to save to pdf as? 
-    # bool save --> save as pdf? 
-    # bool log --> y log the plot? 
-    # str norm ("pot" or "area") --> POT or AREA normalize? 
-    # str x_label --> label of the x-axis for the histogram 
-    ############################
-    
     # set the POT & plots_path for plotting
     plots_path = parameters(isrun3)['plots_path']
     
@@ -609,36 +595,32 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
     if (cuts==""): 
         infv = datasets['infv']
         outfv = datasets['outfv']
-        #cosmic = datasets['cosmic']
         ext = datasets['ext']
         data = datasets['data']
         
     else: 
         infv = datasets['infv'].query(cuts)
         outfv = datasets['outfv'].query(cuts)
-        #cosmic = datasets['cosmic'].query(cuts)
         ext = datasets['ext'].query(cuts)
         data = datasets['data'].query(cuts)
     
-    # get beam on histogram info 
+    ####### get beam on histogram info #######
     n_data, b_data, p_data = plt.hist(data[var], nbins, range=[xlow, xhigh])
     integral_data = np.nansum(n_data)
     data_bins = 0.5*(b_data[1:]+b_data[:-1])
     plt.close()
 
-    # get integral for simulated event spectrum 
-    n_sim, b_sim, p_sim = plt.hist([#cosmic[var], 
-                                    outfv[var], infv[var], ext[var]], 
+    ####### get integral for simulated event spectrum #######
+    n_sim, b_sim, p_sim = plt.hist([outfv[var], infv[var], ext[var]], 
                                   nbins, range=[xlow, xhigh], stacked=True, 
                                   weights=[#cosmic[mc_norm], 
                                            outfv[mc_norm], infv[mc_norm], ext[ext_norm]])
     integral_mc = np.nansum(n_sim[-1])
     plt.close()
     
-    # weights for the MC plot 
+    ####### weights for the MC plot #######
     mc_weights = []
     mc_weights_pot = [ext[ext_norm], 
-                      #cosmic[mc_norm], 
                       outfv[mc_norm], 
                       infv.query(numu_NC_Npi0)[mc_norm], 
                       infv.query(numu_CC_Npi0)[mc_norm], 
@@ -646,11 +628,10 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
                       infv.query(numu_CC_0pi0)[mc_norm], 
                       infv.query(nue_NC)[mc_norm], 
                       infv.query(nue_CCother)[mc_norm], 
-                      #infv.query(numu_Npi0)[mc_norm], infv.query(numu_0pi0)[mc_norm], infv.query(nue_other)[mc_norm],
                       infv.query(nuebar_1eNp)[mc_norm], 
                       infv.query(signal)[mc_norm]]
     
-    # account for POT change in the test/train splitting
+    ####### account for POT change in the test/train splitting #######
     if bdt_scale: 
         print('Accounting for test/train split....')
         mc_weights_pot = [[x/bdt_scale for x in y] for y in mc_weights_pot]
@@ -664,13 +645,12 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
         for l in mc_weights_pot: 
             mc_weights.append([ k*area_scale for k in l ])
 
-    # event counts
+    ######## event counts ########
     counts = event_counts(datasets, var, xlow, xhigh, cuts, ext_norm, mc_norm, plot_data=True, bdt_scale=bdt_scale)
-    #print(counts)
+
     
-    # legend 
+    ######## legend ########
     leg = [labels['ext'][0]+': '+str(counts['ext']),
-                        #labels['cosmic'][0]+': '+str(counts[1]), 
                         labels['outfv'][0]+': '+str(counts['outfv']), 
                         labels['numu_NC_Npi0'][0]+': '+str(counts['numu_NC_Npi0']), 
                         labels['numu_CC_Npi0'][0]+': '+str(counts['numu_CC_Npi0']), 
@@ -678,9 +658,6 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
                         labels['numu_CC_0pi0'][0]+': '+str(counts['numu_CC_0pi0']), 
                         labels['nue_NC'][0]+': '+str(counts['nue_NC']), 
                         labels['nue_CCother'][0]+': '+str(counts['nue_CCother']), 
-                        #labels['numu_Npi0'][0]+': '+str(counts[9]), 
-                        #labels['numu_0pi0'][0]+': '+str(counts[10]), 
-                        #labels['nue_other'][0]+':  '+str(counts[11]), 
                         labels['nuebar_1eNp'][0]+': '+str(counts['nuebar_1eNp']),
                         labels['signal'][0]+': '+str(counts['signal'])
                         ]
@@ -688,28 +665,12 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
     ############### error calculation pt. 1 (pre-plotting) #######################
     
     
-    # stat err due to simulation (taken from the unweighted, unscaled event count) -- need to update to w^2
-    mc_stat_err = mc_stat_error(var, nbins, xlow, xhigh, [infv, outfv, ext])#[infv, outfv, cosmic, ext]) 
+    # stat err due to simulation
+    mc_stat_err = mc_stat_error(var, nbins, xlow, xhigh, [infv, outfv, ext])
     
-    if sys: # these are all fractional errors
+    if sys: # n
         
-        errors = {
-            'ppfx_err' : calcSysError(var, nbins, xlow, xhigh, cuts, datasets, 'weightsPPFX', 600, isrun3)["percent_error"],
-            'beamline_err' : calcSysError(var, nbins, xlow, xhigh, cuts, datasets, 'weightsNuMIGeo', 20, isrun3)["percent_error"],
-            'genie_err' : calcSysError(var, nbins, xlow, xhigh, cuts, datasets, 'weightsGenie', 600, isrun3, background_only=True)["percent_error"], 
-            #'genie_unisim_err' : calcSysError(var, nbins, xlow, xhigh, cuts, datasets, 'weightsGenieUnisim', 22, isrun3)["percent_error"], 
-            'reint_err' : calcSysError(var, nbins, xlow, xhigh, cuts, datasets, 'weightsReint', 1000, isrun3)["percent_error"]
-            #'dirt' : 
-        }
-    
-        # detector systematics are handled differently 
-        #det_nueCC = calcDetSysError(var, nbins, 'NuMI_FHC_LooseCuts_DetectorVariations_FEB2022.root', isrun3, intrinsic=True)
-        #det_non_nueCC = calcDetSysError(var, nbins, 'NuMI_FHC_LooseCuts_DetectorVariations_FEB2022.root', isrun3, intrinsic=False)
-        
-        #det_tot_ncv = [a+b for a,b in zip(det_nueCC['ncv'], det_non_nueCC['ncv'])]
-        
-        #errors['det_nueCC_err'] = [m/n for m, n in zip(det_nueCC['sys_err'], det_tot_ncv)]
-        #errors['det_non_nueCC_err'] = [y/z for y,z in zip(det_non_nueCC['sys_err'], det_tot_ncv)]
+        print('need to update!')
 
     ##############################################################################
     

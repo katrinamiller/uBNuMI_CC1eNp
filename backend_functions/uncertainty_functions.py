@@ -26,6 +26,7 @@ importlib.reload(xsec_functions)
 from xsec_functions import smear_matrix
 
 import top 
+importlib.reload(top)
 from top import *
 
 ########################################################################
@@ -70,7 +71,7 @@ def dirt_unisim(xvar, bins, cv_total, cv_dirt, percent_variation, isrun3, plot=F
 
         plt.show()
         
-    cov_dict = calcCov(xvar, bins, cv_total, [uv_total], '', plot=plot, axis_label='Reco '+x, pot=data_pot, isrun3=isrun3)
+    cov_dict = calcCov(xvar, bins, cv_total, [uv_total], plot=plot, axis_label='Reco '+x, pot=data_pot, isrun3=isrun3)
     
     sys_err = [np.sqrt(x) for x in np.diagonal(cov_dict['cov'])]
     
@@ -98,7 +99,10 @@ def pot_unisims(xvar, ncv, bins, percent_variation, isrun3, plot=False, x_label=
         up = [a-b for a,b in zip(up,bkgd_cv_counts)]
         dn = [a-b for a,b in zip(dn,bkgd_cv_counts)]
         cv = [a-b for a,b in zip(ncv,bkgd_cv_counts)]
-        
+    
+    else: 
+        cv = ncv
+     
     uni_counts = [up, dn]
     
     if plot: 
@@ -123,7 +127,7 @@ def pot_unisims(xvar, ncv, bins, percent_variation, isrun3, plot=False, x_label=
 
         plt.show()
     
-    cov_dict = calcCov(xvar, bins, cv, uni_counts, '', plot=plot, axis_label='Reco '+x, pot=data_pot, isrun3=isrun3, title='POT counting')
+    cov_dict = calcCov(xvar, bins, cv, uni_counts, plot=plot, axis_label='Reco '+x, pot=data_pot, isrun3=isrun3, title='POT counting')
     
     sys_err = [np.sqrt(x) for x in np.diagonal(cov_dict['cov'])]
     
@@ -178,14 +182,14 @@ def plotSysVariations(true_var, reco_var, bins, xlow, xhigh, cuts, datasets, sys
     bin_widths = [ round(bins[i+1]-bins[i], 2) for i in range(len(bins)-1) ] 
     
     cv_weight = 'totweight_data'
-    print("Normalized to DATA POT (using "+cv_weight+")")
+    #print("Normalized to DATA POT (using "+cv_weight+")")
     
     if background_subtraction: 
         print("Implementing background subtraction .... ")
     
     plots_path = parameters(isrun3)['plots_path']
         
-    if sys_var == 'weightsGenie' or sys_var == 'weightsGenieUnisim':  
+    if 'Genie' in sys_var:
         print('make sure to update this calculation for background subtraction on real/fake data!')
     
     ############################################################
@@ -193,12 +197,10 @@ def plotSysVariations(true_var, reco_var, bins, xlow, xhigh, cuts, datasets, sys
     if cuts == '': 
         infv = datasets['infv'].copy()
         outfv = datasets['outfv'].copy()
-        #cosmic = datasets['cosmic'].copy()
         
     else: 
         infv = datasets['infv'].copy().query(cuts)
         outfv = datasets['outfv'].copy().query(cuts)
-        #cosmic = datasets['cosmic'].copy().query(cuts)
     
     # total CV event rate (S+B)
     nu_selected = pd.concat([infv.copy(), outfv.copy()],#, cosmic.copy()], 
@@ -207,16 +209,17 @@ def plotSysVariations(true_var, reco_var, bins, xlow, xhigh, cuts, datasets, sys
     ncv, bcv, pcv = plt.hist(nu_selected[reco_var], bins, weights=nu_selected[cv_weight])
     plt.close()
     
-    print('total CV event rate =', ncv)
+    #print('total CV event rate =', ncv)
 
     if background_subtraction: # CV background event rate -- use when unfolding only 
+        
         nu_selected_background = nu_selected.query(not_signal)
         mc_stat_err = mc_stat_error(reco_var, bins, xlow, xhigh, [nu_selected.query(signal)]) # stat err should only be on CV signal 
         
         bkgd_ncv, bkgd_bcv, bkgd_pcv = plt.hist(nu_selected_background[reco_var], bins, weights=nu_selected_background[cv_weight])
         plt.close()
         
-        print('background CV event rate =', bkgd_ncv)
+        #print('background CV event rate =', bkgd_ncv)
         
         ncv = [a-b for a,b in zip(ncv, bkgd_ncv)]
         
@@ -231,19 +234,30 @@ def plotSysVariations(true_var, reco_var, bins, xlow, xhigh, cuts, datasets, sys
     # histogram bin counts for all universes
     uni_counts = []
     
-    if isinstance(universes, list): 
+    if isinstance(universes, list): # in the case of unisims --> indices of the universes to vary in the weightsList 
         universes = universes
+        line_width = 1
+        sim = 'unisim'
         
-    elif isinstance(universes, int): 
+    elif isinstance(universes, int): # in the case of multisims --> number of multisims
         universes = range(universes)
+        line_width = 0.5
+        sim = 'multisim'
+
         
     for u in universes: 
             
         # multiply CV weights with sys weight of universe u 
         sys_weight = list(nu_selected[sys_var].str.get(u))
 
-        if sys_var == 'weightsGenie' or sys_var == 'weightsGenieUnisim':  # replace the tune weight 
-            nu_selected['weight_sys'] = [ x*y for x, y in zip(sys_weight, nu_selected[cv_weight]/nu_selected['weightTune']) ]   
+        if sys_var=='weightsGenie':  # replace the tune weight 
+            nu_selected['weight_sys'] = [ x*y for x, y in zip(sys_weight, nu_selected[cv_weight]/nu_selected['weightTune']) ]  
+            
+        elif sys_var=='weightsGenieUnisim': # except for SCC variations
+            if 'scc' in title: 
+                nu_selected['weight_sys'] = [ x*y for x, y in zip(sys_weight, nu_selected[cv_weight]) ]
+            else: 
+                nu_selected['weight_sys'] = [ x*y for x, y in zip(sys_weight, nu_selected[cv_weight]/nu_selected['weightTune']) ]  
 
         else: 
             nu_selected['weight_sys'] = [ x*y for x, y in zip(sys_weight, nu_selected[cv_weight]) ]
@@ -263,14 +277,31 @@ def plotSysVariations(true_var, reco_var, bins, xlow, xhigh, cuts, datasets, sys
 
         # plot the systematic universes first 
         counter = 0
+        
         for u in universes: 
             
-            plt.hist(0.5*(bcv[1:]+bcv[:-1]), bins, 
-                     weights=uni_counts[counter], histtype='step', color='cornflowerblue', linewidth=0.5)
+            #if len(universes)==2: # symmetric unisims
+            #    if counter==0: 
+            #        plt.hist(0.5*(bcv[1:]+bcv[:-1]), bins, 
+            #                     weights=uni_counts[counter], histtype='step', color='forestgreen', linewidth=line_width, label='UV (+)')
+            #    elif counter==1: 
+            #        plt.hist(0.5*(bcv[1:]+bcv[:-1]), bins, 
+            #                     weights=uni_counts[counter], histtype='step', color='firebrick', linewidth=line_width, label='UV (-)')
+                
+                
+            #else: # single unisims & multisims
+            if counter==0: 
+                plt.hist(0.5*(bcv[1:]+bcv[:-1]), bins, 
+                                 weights=uni_counts[counter], histtype='step', color='cornflowerblue', linewidth=line_width, label='UV')
+            else: 
+                plt.hist(0.5*(bcv[1:]+bcv[:-1]), bins, 
+                                 weights=uni_counts[counter], histtype='step', color='cornflowerblue', linewidth=line_width)
+                    
             counter += 1
-            
-        plt.hist(0.5*(bcv[1:]+bcv[:-1]), bins, weights=ncv, histtype='step', color='black', linewidth=2)
-        plt.errorbar(0.5*(bcv[1:]+bcv[:-1]), ncv, yerr=mc_stat_err_scaled, fmt='none', color='black', linewidth=2)
+
+
+        x_err = [ round(abs(bcv[x+1]-bcv[x])/2, 3) for x in range(len(bcv)-1) ]
+        plt.errorbar(0.5*(bcv[1:]+bcv[:-1]), ncv, yerr=mc_stat_err_scaled, xerr=x_err, fmt='none', color='black', linewidth=2, label='CV')
 
         if title: 
             plt.title(title, fontsize=15)
@@ -279,6 +310,8 @@ def plotSysVariations(true_var, reco_var, bins, xlow, xhigh, cuts, datasets, sys
 
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=14)
+        
+        plt.legend(fontsize=13, frameon=False)
         
         if axis_label is not None: 
             plt.xlabel(axis_label, fontsize=15)
@@ -305,7 +338,7 @@ def plotSysVariations(true_var, reco_var, bins, xlow, xhigh, cuts, datasets, sys
     
 ########################################################################
 # compute covariance & correlation matrices 
-def calcCov(var, bins, ncv, uni_counts, sys_var, plot=False, save=False, axis_label=None, pot=None, isrun3=False, title=None): 
+def calcCov(var, bins, ncv, uni_counts, plot=False, save=False, axis_label=None, pot=None, isrun3=False, title=None): 
     
     plots_path = parameters(isrun3)['plots_path']
     
@@ -315,7 +348,7 @@ def calcCov(var, bins, ncv, uni_counts, sys_var, plot=False, save=False, axis_la
     cor = [ [0]*(len(bins)-1) for x in range(len(bins)-1) ]
     
     N = len(uni_counts)
-    print(N)
+    print('number of universes = ', N)
 
     #####################################################
     
