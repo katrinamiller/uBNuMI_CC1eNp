@@ -14,7 +14,7 @@ import time
 
 
 class NuMIGeoWeights:
-    def __init__(self, geoVarRootFileName="/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run1/systematics/NuMI_Beamline_Variations_to_CV_Ratios.root", current="FHC"):
+    def __init__(self, current, geoVarRootFileName="/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run1/systematics/NuMI_Beamline_Variations_to_CV_Ratios.root"):
         self.nameDictionary = {14: 'numu', -14: 'numubar', 12: 'nue', -12:'nuebar'}
         self.fullDictionary = None 
         self.energyEdges    = None
@@ -22,7 +22,10 @@ class NuMIGeoWeights:
         self.createGeoWeightsDictionary(current, geoVarRootFileName)
 
     # creates a dictionary with keys = (neutrino flavor + energy bin + angular bin) that
-    def createGeoWeightsDictionary(self, current="FHC",geoVarRootFileName="/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run1/systematics/NuMI_Beamline_Variations_to_CV_Ratios.root"):
+    def createGeoWeightsDictionary(self, current, geoVarRootFileName="/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run1/systematics/NuMI_Beamline_Variations_to_CV_Ratios.root"):
+        
+        print("Using current", current)
+        
         self.fullDictionary = {}
         self.energyEdges    = {}
         self.angleEdges     = {}
@@ -33,10 +36,9 @@ class NuMIGeoWeights:
             weights        = []
             thisFolder = uproot.open(geoVarRootFileName)['EnergyTheta2D'] # pull the 2D ratio histogram file
             ####### Let's fix the parameters here                                                                                                         
-            # pick correct neutrino type & horn mode 
+            # grab histogram for run 1 (use to get bin edges)
             histoName      = "ratio_run"+str(1)+"_"+str(current)+"_"+str(neutrino)+"_CV_AV_TPC_2D"
             
-            # grab histogram for run 1 (use to get bin edges)
             thisHisto = thisFolder[histoName]
             
             # energy bins

@@ -6,7 +6,7 @@ import math
 import warnings
 import importlib 
 
-import scipy.stats
+#import scipy.stats
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -27,6 +27,7 @@ import NuMIDetSys
 NuMIDetSysWeights = NuMIDetSys.NuMIDetSys()
 
 import top 
+importlib.reload(top)
 from top import *
 
 import uncertainty_functions
@@ -147,11 +148,17 @@ def offline_flux_weights(mc_df):
 ########################################################################
 # error on the data/MC ratio 
 def get_ratio_err(n_data, n_mc): 
-
+    
     err = []
     for i in range(len(n_data)): 
-        err.append(n_data[i]/n_mc[i]*math.sqrt( (math.sqrt(n_data[i]) / n_data[i])**2 + (math.sqrt(n_mc[i]) / n_mc[i])**2 )) 
-    
+        
+        # divide the counting error by n_mc - the MC error is handled by the systematics band 
+        err.append( math.sqrt(n_data[i])/n_mc[i] )
+
+   # err = []
+   # for i in range(len(n_data)): 
+   #     err.append( n_data[i]/n_mc[i] * math.sqrt( (math.sqrt(n_data[i]) / n_data[i])**2))# + (math.sqrt(n_mc[i]) / n_mc[i])**2 )) 
+   # print(err)
     return err
 ########################################################################
 # get event counts for plotting 
@@ -187,22 +194,7 @@ def event_counts(datasets, xvar, xmin, xmax, cuts, ext_norm, mc_norm, plot_data=
 ########################################################################
 # Plot MC, normalized to beam on, overlay, OR projected 
 # NEED TO ADD: GENIE UNISIMS, NON-nueCC DET SYS
-def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', pot=None, save=False, save_label=None, log=False, x_label=None, ymax=None, sys=False, bdt_scale=None, text=None, xtext=None, ytext=None, osc=None, plot_bkgd=False):
-    
-    print(' need to update systematic uncertainties ! ')
-    
-    ############################
-    # str var --> variable on x
-    # nbins --> # of bins in histogram 
-    # xlow, xhigh --> histogram x bounds
-    # str cuts --> cuts query applied to data set (string)
-    # datasets = list of [df_infv, df_outfv, df_cosmic, df_ext, df_data] in that order 
-    # str save_label --> what label to save to pdf as? 
-    # bool save --> save as pdf? 
-    # bool log --> y log the plot? 
-    # str norm --> what POT do we want to scale to: data (totweight), overlay, or proj?
-    # str x_label --> label of the x-axis for the histogram 
-    ############################
+def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', save=False, save_label=None, log=False, x_label=None, xmax=None, y_label=None, ymax=None, bdt_scale=None, text=None, xtext=None, ytext=None, osc=None, plot_bkgd=False, sys=None, x_ticks=None, bin_norm=1.0):
     
     
     # set the POT & plots_path for plotting
@@ -211,30 +203,25 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', pot
     if (cuts==""): 
         infv = datasets['infv']
         outfv = datasets['outfv']
-        #cosmic = datasets['cosmic']
         ext = datasets['ext']
         
     else: 
         infv = datasets['infv'].query(cuts)
         outfv = datasets['outfv'].query(cuts)
-        #cosmic = datasets['cosmic'].query(cuts)
         ext = datasets['ext'].query(cuts)
     
     ## MC weights
-    categories = {'outfv' : outfv, 
-                  #cosmic, 
+    categories = {'ext' : ext, 
+                  'outfv' : outfv, 
                   'numu_NC_Npi0' : infv.query(numu_NC_Npi0), 
                   'numu_CC_Npi0' : infv.query(numu_CC_Npi0), 
                   'numu_NC_0pi0' : infv.query(numu_NC_0pi0), 
                   "numu_CC_0pi0" : infv.query(numu_CC_0pi0), 
                   'nue_NC' : infv.query(nue_NC), 
                   'nue_CCother' : infv.query(nue_CCother), 
-                  #infv.query(numu_Npi0), 
-                  #infv.query(numu_0pi0), 
-                  #infv.query(nue_other),
                   'nuebar_1eNp' : infv.query(nuebar_1eNp), 
                   'signal' : infv.query(signal),
-                  'ext' : ext}
+                  }
     
     mc_norm = ''
     ext_norm = ''
@@ -244,54 +231,40 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', pot
         mc_norm = 'totweight_data'
         ext_norm = 'pot_scale'
         
-    elif (norm=='overlay'):
-        
-        mc_norm = 'totweight_overlay'
-        ext_norm = 'pot_scale_overlay'
+    else: 
+        print("update!")
         
     mc_weights = {}
     if bdt_scale: 
         print("Accounting for BDT test/train split....")
         for category in categories.keys(): 
             if category=='ext': 
-                mc_weights['ext'] = [ x/bdt_scale for x in categories[category][ext_norm]]
+                mc_weights['ext'] = [ x/(bdt_scale) for x in categories[category][ext_norm]]
             else: 
-                mc_weights[category] = [ x/bdt_scale for x in categories[category][mc_norm]]
-            
-        
-        #mc_weights = [[ x/bdt_scale for x in d[mc_norm] ] for d in categories[:-1]]
-        #mc_weights.append( [x/bdt_scale for x in categories[-1][ext_norm]] )
-        
+                mc_weights[category] = [ x/(bdt_scale) for x in categories[category][mc_norm]]
+              
     else:
         for category in categories.keys(): 
             if category=='ext': 
                 mc_weights['ext'] = categories[category][ext_norm]
             else: 
                 mc_weights[category] = categories[category][mc_norm]
-
-        #mc_weights = [d[mc_norm] for d in categories[:-1]]
-        #mc_weights.append( categories[-1][ext_norm] )
         
     # event counts
     counts = event_counts(datasets, var, xlow, xhigh, cuts, ext_norm, mc_norm, plot_data=False, bdt_scale=bdt_scale)
-    #print(counts)
      
     # legend 
     leg = {
+        'ext' : labels['ext'][0]+': '+str(counts['ext']),
         'outfv' : labels['outfv'][0]+': '+str(counts['outfv']), 
         'numu_NC_Npi0' : labels['numu_NC_Npi0'][0]+': '+str(counts['numu_NC_Npi0']), 
         'numu_CC_Npi0' : labels['numu_CC_Npi0'][0]+': '+str(counts['numu_CC_Npi0']), 
         'numu_NC_0pi0' : labels['numu_NC_0pi0'][0]+': '+str(counts['numu_NC_0pi0']), 
         'numu_CC_0pi0' : labels['numu_CC_0pi0'][0]+': '+str(counts['numu_CC_0pi0']), 
-        #'cosmic' : #labels['cosmic'][0]+': '+str(counts[0]), 
         'nue_NC' : labels['nue_NC'][0]+': '+str(counts['nue_NC']), 
         'nue_CCother' : labels['nue_CCother'][0]+': '+str(counts['nue_CCother']),
-        #labels['numu_Npi0'][0]+': '+str(counts[8]), 
-        #labels['numu_0pi0'][0]+': '+str(counts[9]), 
-        #labels['nue_other'][0]+': '+str(counts[10]), 
         'nuebar_1eNp' : labels['nuebar_1eNp'][0]+': '+str(counts['nuebar_1eNp']), 
-        'signal' : labels['signal'][0]+': '+str(counts['signal']), 
-        'ext' : labels['ext'][0]+': '+str(counts['ext'])
+        'signal' : labels['signal'][0]+': '+str(counts['signal'])
     }
         
     
@@ -320,51 +293,37 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', pot
         
     ############### Error calculation pt. 1 (pre-plotting) #######################
     
-    # stat err due to simulation (taken from the unweighted, unscaled event count) -- need to update to w^2
-    mc_stat_err = mc_stat_error(var, nbins, xlow, xhigh, [infv, outfv, ext]) #[infv, outfv, cosmic, ext]) 
+    if sys is None: 
+        mc_err = mc_error(var, nbins, xlow, xhigh, [infv, outfv]) 
     
-    if sys: 
-        
-        ppfx_err = calcSysError(var, nbins, xlow, xhigh, cuts, datasets, 'weightsPPFX', 600, plot=False)
-        beamline_err = calcSysError(var, nbins, xlow, xhigh, cuts, datasets, 'weightsNuMIGeo', 20, plot=False)
-        genie_err = calcSysError(var, nbins, xlow, xhigh, cuts, datasets, 'weightsGenie', 600, plot=False)
-        reint_err = calcSysError(var, nbins, xlow, xhigh, cuts, datasets, 'weightsReint', 1000, plot=False)
-        det_err_bkgd = calcDetSysError(var, nbins, intrinsic=False)
-        det_err_nueCC = calcDetSysError(var, nbins, intrinsic=True)
+        # quick plot of ext 
+        ext_counts = plt.hist(ext[var], nbins, range=[xlow, xhigh], weights=ext[ext_norm])[0]
+        plt.close()
     
     ############################ PLOT ####################################### 
      
     fig = plt.figure(figsize=(8, 5))
-    n, b, p = plt.hist([#cosmic[var], 
-                       outfv[var], 
+    n, b, p = plt.hist([ext[var], outfv[var], 
                        infv.query(numu_NC_Npi0)[var],
                        infv.query(numu_CC_Npi0)[var],
                        infv.query(numu_NC_0pi0)[var],
                        infv.query(numu_CC_0pi0)[var],
                        infv.query(nue_NC)[var],
                        infv.query(nue_CCother)[var],
-                       #infv.query(numu_Npi0)[var], 
-                       #infv.query(numu_0pi0)[var], 
-                       #infv.query(nue_other)[var],
                        infv.query(nuebar_1eNp)[var], 
-                       infv.query(signal)[var],
-                       ext[var]],
+                       infv.query(signal)[var]],
             nbins, histtype='bar', range=[xlow, xhigh], stacked=True, 
-            color=[#labels['cosmic'][1], 
-                       labels['outfv'][1], 
+            color=[labels['ext'][1], labels['outfv'][1], 
                        labels['numu_NC_Npi0'][1], 
                        labels['numu_CC_Npi0'][1], 
                        labels['numu_NC_0pi0'][1], 
                        labels['numu_CC_0pi0'][1], 
                        labels['nue_NC'][1], 
                        labels['nue_CCother'][1],
-                       #labels['numu_Npi0'][1], 
-                       #labels['numu_0pi0'][1], 
-                       #labels['nue_other'][1], 
                        labels['nuebar_1eNp'][1], 
-                       labels['signal'][1], 
-                       labels['ext'][1]], 
-            label=[leg['outfv'], 
+                       labels['signal'][1]], 
+            label=[leg['ext'],
+                   leg['outfv'], 
                    leg['numu_NC_Npi0'], 
                    leg['numu_CC_Npi0'], 
                    leg['numu_NC_0pi0'], 
@@ -372,54 +331,68 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', pot
                    leg['nue_NC'], 
                    leg['nue_CCother'], 
                    leg['nuebar_1eNp'], 
-                   leg['signal'], 
-                   leg['ext']
+                   leg['signal']
                   ],
-            weights=[mc_weights['outfv'], 
-                   mc_weights['numu_NC_Npi0'], 
-                   mc_weights['numu_CC_Npi0'], 
-                   mc_weights['numu_NC_0pi0'], 
-                   mc_weights['numu_CC_0pi0'], 
-                   mc_weights['nue_NC'], 
-                   mc_weights['nue_CCother'], 
-                   mc_weights['nuebar_1eNp'], 
-                   mc_weights['signal'], 
-                   mc_weights['ext']
-                  ])
+            weights=[mc_weights['ext'], 
+                     mc_weights['outfv'], 
+                     mc_weights['numu_NC_Npi0'], 
+                     mc_weights['numu_CC_Npi0'], 
+                     mc_weights['numu_NC_0pi0'], 
+                     mc_weights['numu_CC_0pi0'], 
+                     mc_weights['nue_NC'], 
+                     mc_weights['nue_CCother'], 
+                     mc_weights['nuebar_1eNp'], 
+                     mc_weights['signal'] 
+                     ])
     
     # total selected 
     print('total selected = '+str(np.nansum(n[-1])))
     
     
     ############### Error calculation pt. 2 (post-plotting) #######################
-
-    # scale MC to events in hist bins, add in quadrature 
-    mc_stat_err_scaled = [x*y for x, y in zip(n[-1], mc_stat_err)]
-    stat_err = mc_stat_err_scaled 
     
-    if sys: 
+    if sys is not None: 
         
-        # scale to the (weighted?) number of events 
-        ppfx_err_scaled = [x*y for x, y in zip(n[-1], ppfx_err[1])]
-        beamline_err_scaled = [x*y for x, y in zip(n[-1], beamline_err[1])]
-        genie_err_scaled = [x*y for x, y in zip(n[-1], genie_err[1])]
-        reint_err_scaled = [x*y for x, y in zip(n[-1], reint_err[1])]
-        det_err_bkgd_scaled = [x*y for x, y in zip(n[-1], det_err_bkgd["percent_sys_error"])]
-        det_err_nueCC_scaled = [x*y for x, y in zip(n[-1], det_err_nueCC["percent_sys_error"])]
+        err_label = 'MC+EXT Stat.\n& Sys. Uncertainty'
+        tot_percent_err = sys
+        tot_err = [x*y for x,y in zip(n[-1],sys)]
         
-        # add in quadrature the stat error & the sys error 
-        tot_err = [ np.sqrt(t**2 + u**2 + v**2 + w**2 + x**2 + y**2 + z**2) for t,u,v,w,x,y,z in zip(stat_err, ppfx_err_scaled, beamline_err_scaled, genie_err_scaled, reint_err_scaled, det_err_bkgd_scaled, det_err_nueCC_scaled) ]
-               
     else: 
-        tot_err = stat_err
-
-    bincenters = 0.5*(b[1:]+b[:-1])
-    plt.errorbar(bincenters, n[-1], yerr=tot_err, fmt='none', color='black', linewidth=1)
+        ext_percent_err = np.sqrt(ext_counts)/n[-1]
+        mc_percent_err = mc_err/n[-1]
     
-    # error outline 
+        # add in quadrature 
+        sim_percent_err = np.array([x**2+y**2 for x,y in zip(mc_percent_err, ext_percent_err)])
+        sim_percent_err = np.sqrt(sim_percent_err)
+    
+        sim_err = [x*y for x, y in zip(n[-1], sim_percent_err)]
+        
+        err_label = 'MC+EXT Stat.\nUncertainty'
+        
+        tot_err = sim_err
+        tot_percent_err =  sim_percent_err
+        
+    
+    # uncertainty band 
+    low_err = [ x-y for x,y in zip(n[-1], tot_err) ]
+    low_err.insert(0, low_err[0])
+
+    high_err = [ x+y for x,y in zip(n[-1], tot_err)]
+    high_err.insert(0, high_err[0])
+    
+    plt.fill_between(nbins, low_err, high_err, step="pre", facecolor=(.25, .25, .25, 0), 
+                     edgecolor='darkgray', 
+                     hatch='.....', 
+                     linewidth=0.0, zorder=2, 
+                     label=err_label)
+    
+    #bincenters = 0.5*(b[1:]+b[:-1])
+    #plt.errorbar(bincenters, n[-1], yerr=sim_err, fmt='none', color='black', linewidth=1)
+    
+    # simulation outline 
     tot = list([0, n[-1][0]])+list(n[-1])+[0]
     b_step = list([b[0]])+list(b)+list([b[-1]])
-    plt.step(b_step, tot, color='black', linewidth=.7)
+    plt.step(b_step, tot, color='saddlebrown', linewidth=2)
       
     ##################### Add in oscillated event rate #############################
     
@@ -437,17 +410,18 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', pot
     # plot format stuff
     plt.legend(loc='best', prop={"size":10}, ncol=3, frameon=False)
         
-    if pot is not None: 
-        plt.ylabel("$\\nu$ / "+pot+" POT", fontsize=15)
+    if y_label: 
+        plt.ylabel(y_label, fontsize=15)
     
     if x_label:
         plt.xlabel(x_label, fontsize=15)
     else: 
         plt.xlabel(var, fontsize=15)
     
-    plt.xlim(xlow, xhigh)
-    
-    plt.xticks(fontsize=14)
+    if x_ticks: 
+        plt.xticks(x_ticks, fontsize=14)
+    else: 
+        plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
     
     if log: 
@@ -459,74 +433,85 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', pot
         else: 
             plt.ylim(0, ymax)
             
+    if xmax: 
+        plt.xlim(xlow, xmax)
+    else: 
+        plt.xlim(xlow, xhigh)
+            
     if text: 
         plt.text(xtext, ytext, text, fontsize='xx-large', horizontalalignment='right')
     
     if save: 
-        plt.savefig(plots_path+var+"_"+save_label+".pdf", transparent=True, bbox_inches='tight') 
+        plt.savefig(plots_path+var+"_"+save_label+".svg", transparent=True, bbox_inches='tight') 
         print('saving to: '+plots_path)
         
     plt.show()
     
     ######################### plot background only #################################
     
-    mc_stat_err_bkgd = mc_stat_error(var, nbins, xlow, xhigh, [outfv, infv.query(not_signal), ext]) #[cosmic, outfv, infv.query(not_signal), ext])
     
+    
+    mc_bkgd_err = mc_error(var, nbins, xlow, xhigh, [outfv, infv.query(not_signal)]) 
+
     fig = plt.figure(figsize=(8, 5))
-    
-    n2, b2, p2 = plt.hist([#cosmic[var], 
-                       outfv[var], 
-                       infv.query(numu_NC_Npi0)[var],
-                       infv.query(numu_CC_Npi0)[var],
-                       infv.query(numu_NC_0pi0)[var],
-                       infv.query(numu_CC_0pi0)[var],
-                       infv.query(nue_NC)[var],
-                       infv.query(nue_CCother)[var],
-                       infv.query(nuebar_1eNp)[var], 
-                       ext[var]],
-            nbins, histtype='bar', range=[xlow, xhigh], stacked=True, 
-            color=[#labels['cosmic'][1], 
-                       labels['outfv'][1], 
-                       labels['numu_NC_Npi0'][1], 
-                       labels['numu_CC_Npi0'][1], 
-                       labels['numu_NC_0pi0'][1], 
-                       labels['numu_CC_0pi0'][1], 
-                       labels['nue_NC'][1], 
-                       labels['nue_CCother'][1],
-                       labels['nuebar_1eNp'][1], 
-                       labels['ext'][1]], 
-            label=[leg['outfv'], 
-                   leg['numu_NC_Npi0'], 
-                   leg['numu_CC_Npi0'], 
-                   leg['numu_NC_0pi0'], 
-                   leg['numu_CC_0pi0'], 
-                   leg['nue_NC'], 
-                   leg['nue_CCother'], 
-                   leg['nuebar_1eNp'], 
-                   leg['ext']],
-            weights=[mc_weights['outfv'], 
-                   mc_weights['numu_NC_Npi0'], 
-                   mc_weights['numu_CC_Npi0'], 
-                   mc_weights['numu_NC_0pi0'], 
-                   mc_weights['numu_CC_0pi0'], 
-                   mc_weights['nue_NC'], 
-                   mc_weights['nue_CCother'], 
-                   mc_weights['nuebar_1eNp'], 
-                   mc_weights['ext']
-                  ])
-    
-    plt.legend(loc='best', prop={"size":10}, ncol=3, frameon=False)
-    
+
+    n2, b2, p2 = plt.hist([outfv[var], 
+                           infv.query(numu_NC_Npi0)[var],
+                           infv.query(numu_CC_Npi0)[var],
+                           infv.query(numu_NC_0pi0)[var],
+                           infv.query(numu_CC_0pi0)[var],
+                           infv.query(nue_NC)[var],
+                           infv.query(nue_CCother)[var],
+                           infv.query(nuebar_1eNp)[var], 
+                           ext[var]],
+                nbins, histtype='bar', range=[xlow, xhigh], stacked=True, 
+                color=[labels['outfv'][1], 
+                           labels['numu_NC_Npi0'][1], 
+                           labels['numu_CC_Npi0'][1], 
+                           labels['numu_NC_0pi0'][1], 
+                           labels['numu_CC_0pi0'][1], 
+                           labels['nue_NC'][1], 
+                           labels['nue_CCother'][1],
+                           labels['nuebar_1eNp'][1], 
+                           labels['ext'][1]], 
+                label=[leg['outfv'], 
+                       leg['numu_NC_Npi0'], 
+                       leg['numu_CC_Npi0'], 
+                       leg['numu_NC_0pi0'], 
+                       leg['numu_CC_0pi0'], 
+                       leg['nue_NC'], 
+                       leg['nue_CCother'], 
+                       leg['nuebar_1eNp'], 
+                       leg['ext']],
+                weights=[mc_weights['outfv'], 
+                       mc_weights['numu_NC_Npi0'], 
+                       mc_weights['numu_CC_Npi0'], 
+                       mc_weights['numu_NC_0pi0'], 
+                       mc_weights['numu_CC_0pi0'], 
+                       mc_weights['nue_NC'], 
+                       mc_weights['nue_CCother'], 
+                       mc_weights['nuebar_1eNp'], 
+                       mc_weights['ext']
+                      ])
     
     if plot_bkgd: 
-        
+
+        plt.legend(loc='best', prop={"size":10}, ncol=3, frameon=False)
+
+        mc_bkgd_percent_err = mc_bkgd_err/n2[-1]
+
+        # add in quadrature 
+        sim_bkgd_percent_err = np.array([x**2+y**2 for x,y in zip(mc_bkgd_percent_err, ext_percent_err)])
+        sim_bkgd_percent_err = np.sqrt(sim_bkgd_percent_err)
+
+        sim_bkgd_err = [x*y for x, y in zip(n2[-1], sim_bkgd_percent_err)]
+
         tot2 = list([0, n2[-1][0]])+list(n2[-1])+[0]
         b_step2 = list([b2[0]])+list(b2)+list([b2[-1]])
         plt.step(b_step2, tot2, color='black', linewidth=.7)
         
         # ERRORS
-        mc_stat_err_bkgd_scaled = [x*y for x, y in zip(n2[-1], mc_stat_err_bkgd)]
-        plt.errorbar(bincenters, n2[-1], yerr=mc_stat_err_bkgd_scaled, fmt='none', color='black', linewidth=1)
+        plt.errorbar(bincenters, n2[-1], yerr=sim_bkgd_err, fmt='none', color='black', linewidth=1)
     
         # FORMATTING STUFF
         
@@ -561,29 +546,15 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', pot
     d = { 
        "bins" : nbins, 
         "CV" : list(n[-1]), 
-        "mc_stat_percent_error" : mc_stat_err,
-        "stat_error" : stat_err,
         "background_counts" : list(n2[-1])
     }
-
-    if sys: 
-        d["ppfx"] = ppfx_err[1], 
-        d["beamline"] = beamline_err[1],
-        d["genie"] = genie_err[1], 
-        d["reint"] = reint_err[1],
-        d["det_intrinsic"] = det_err_nueCC["percent_sys_error"], 
-        d["det_other"] = det_err_bkgd['percent_sys_error'],
-        d["tot"] = [ x/y for x,y in zip(tot_err, n[-1]) ]  
-    
-    else: 
-        d["tot"] = [ x/y for x,y in zip(tot_err, n[-1]) ]  
 
     return d
 
 ########################################################################
 # Data/MC comparisons
 # NEED TO ADD: GENIE UNISIMS, NON-nueCC DET SYS
-def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_scale=None, save=False, save_label=None, log=False, x_label=None, y_label=None, ymax=None, sys=False, xtext=None, ytext=None): 
+def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, save=False, save_label=None, log=False, x_label=None, y_label=None, ymax=None, sys=None, text=None, xtext=None, ytext=None): 
     
     # set the POT & plots_path for plotting
     plots_path = parameters(isrun3)['plots_path']
@@ -603,6 +574,7 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
         outfv = datasets['outfv'].query(cuts)
         ext = datasets['ext'].query(cuts)
         data = datasets['data'].query(cuts)
+    
     
     ####### get beam on histogram info #######
     n_data, b_data, p_data = plt.hist(data[var], nbins, range=[xlow, xhigh])
@@ -636,14 +608,8 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
         print('Accounting for test/train split....')
         mc_weights_pot = [[x/bdt_scale for x in y] for y in mc_weights_pot]
 
-    if (norm=='pot'):
-        mc_weights = mc_weights_pot
+    mc_weights = mc_weights_pot
 
-    elif (norm=='area'):         
-        area_scale = integral_data/integral_mc  
-        
-        for l in mc_weights_pot: 
-            mc_weights.append([ k*area_scale for k in l ])
 
     ######## event counts ########
     counts = event_counts(datasets, var, xlow, xhigh, cuts, ext_norm, mc_norm, plot_data=True, bdt_scale=bdt_scale)
@@ -664,17 +630,19 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
 
     ############### error calculation pt. 1 (pre-plotting) #######################
     
-    
-    # stat err due to simulation
-    mc_stat_err = mc_stat_error(var, nbins, xlow, xhigh, [infv, outfv, ext])
-    
-    if sys: # n
+    if sys is None: # then only plot the stat error 
         
-        print('need to update!')
+        mc_err = mc_error(var, nbins, xlow, xhigh, [infv, outfv]) 
+        
+        # quick plot of ext 
+        ext_counts = plt.hist(ext[var], nbins, range=[xlow, xhigh], weights=ext[ext_norm])[0]
+        plt.close()
+        
 
     ##############################################################################
     
     # plot 
+    #fig = plt.figure(figsize=(12, 10))
     fig = plt.figure(figsize=(8, 7))
 
     gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1])
@@ -685,9 +653,11 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
     ax1.tick_params(axis = 'both', which = 'major', labelsize = 14)
     ax2.tick_params(axis = 'both', which = 'major', labelsize = 14)
     
+    #ax1.set_xticks([0, 1])
+    #ax2.set_xticks([0, 1])
+    
 
     n, b, p = ax1.hist([ext[var], 
-                        #cosmic[var], 
                         outfv[var], 
                         infv.query(numu_NC_Npi0)[var],
                         infv.query(numu_CC_Npi0)[var],
@@ -695,9 +665,6 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
                         infv.query(numu_CC_0pi0)[var],
                         infv.query(nue_NC)[var], 
                         infv.query(nue_CCother)[var], 
-                        #infv.query(numu_Npi0)[var], 
-                        #infv.query(numu_0pi0)[var], 
-                        #infv.query(nue_other)[var],
                         infv.query(nuebar_1eNp)[var], 
                         infv.query(signal)[var]], 
             nbins, histtype='bar', range=[xlow, xhigh], stacked=True, 
@@ -710,76 +677,21 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
                         labels['numu_CC_0pi0'][1], 
                         labels['nue_NC'][1], 
                         labels['nue_CCother'][1], 
-                        #labels['numu_Npi0'][1], 
-                        #labels['numu_0pi0'][1], 
-                        #labels['nue_other'][1],
                         labels['nuebar_1eNp'][1], 
                         labels['signal'][1] 
                        ], 
             label=leg, 
             weights=mc_weights, zorder=1)
     
-    ############### error calculation pt. 2 (post-plotting)#######################
-
-    # scale MC to events in hist bins, add in quadrature 
-    mc_stat_err_scaled = [x*y for x, y in zip(n[-1], mc_stat_err)]
     
-    # list of percent errors, starting with total stat error 
-    percent_errors = [[x/y for x,y in zip(mc_stat_err_scaled, n[-1])]]
-    
-    # add in quadrature the total error (stat or stat+sys)
-    tot_err = []
-
-    if sys: 
-        errors['pot_counting_err'] = flat_unisims(var, n[-1], nbins, 0.02, isrun3, plot=False, xsec_units=False)["percent_error"]
-        percent_errors += errors.values() 
-        
-        # scale to the (weighted) number of events 
-        errors_scaled = {
-            'ppfx_err_scaled' : [x*y for x, y in zip(n[-1], errors['ppfx_err'])], 
-            'beamline_err_scaled' : [x*y for x, y in zip(n[-1], errors['beamline_err'])],
-            'genie_err_scaled' : [x*y for x, y in zip(n[-1], errors['genie_err'])], 
-            #'genie_unisim_err_scaled' : [x*y for x, y in zip(n[-1], errors['genie_unisim_err'])], 
-            'reint_err_scaled' : [x*y for x, y in zip(n[-1], errors['reint_err'])],
-            #'det_err_nueCC_scaled' : [x*y for x, y in zip(n[-1], errors['det_nueCC_err'])], 
-            #'det_err_non_nueCC_scaled' : [x*y for x, y in zip(n[-1], errors['det_non_nueCC_err'])], 
-            'pot_counting_err_scaled' : [x*y for x, y in zip(n[-1], errors['pot_counting_err'])]
-            #'dirt' :  
-        }
-
-        
-        # add in quadrature the stat error & the sys error 
-        tot_err = [ np.sqrt(u**2+v**2+w**2+x**2+y**2+z**2) for u,v,w,x,y,z in zip(mc_stat_err_scaled, 
-                                                        errors_scaled['ppfx_err_scaled'], 
-                                                        errors_scaled['beamline_err_scaled'],
-                                                        errors_scaled['genie_err_scaled'], 
-                                                        #errors_scaled['genie_unisim_err_scaled'],
-                                                        errors_scaled['reint_err_scaled'] ,
-                                                        errors_scaled['pot_counting_err_scaled'])]
-                                                        #errors_scaled['det_err_nueCC_scaled'], 
-                                                        #errors_scaled['det_err_non_nueCC_scaled'] ) ]
-               
-    else: # only include stat error 
-        tot_err = mc_stat_err_scaled
-   
-    tot_err_percent = [ x/y for x,y in zip(tot_err, n[-1]) ]
-
-    low_err = [ x-y for x,y in zip(n[-1], tot_err) ]
-    low_err.insert(0, low_err[0])
-
-    high_err = [ x+y for x,y in zip(n[-1], tot_err)]
-    high_err.insert(0, high_err[0])
-    
-    ax1.fill_between(nbins, low_err, high_err, step="pre", facecolor="peru", edgecolor="peru", 
-                     linewidth=0.0, zorder=2, alpha=0.5)
     
     ############################ PLOT THE BEAM-ON DATA ############################
-    
+     
     # calculate the width of each bin 
     x_err = [ (b[i+1]-b[i])/2 for i in range(len(b)-1) ]
 
-    #ax1.errorbar(data_bins, n_data, yerr=np.sqrt(n_data), xerr=x_err, 
-    #         color="black", fmt='o', markersize=3, label='DATA: '+str(len(data)), zorder=3)
+    ax1.errorbar(data_bins, n_data, yerr=np.sqrt(n_data), xerr=x_err, 
+             color="black", fmt='o', markersize=3, label='DATA: '+str(int(sum(n_data))), zorder=4)
     
     if y_label: 
         ax1.set_ylabel("$\\nu$ / "+y_label+ " POT", fontsize=15)
@@ -790,29 +702,73 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
         if log: 
             ax1.set_ylim(1, ymax)
         else: 
-            ax1.set_ylim(0, ymax)
+            ax1.set_ylim(0, ymax)    
+    
+    ############### error calculation pt. 2 (post-plotting)#######################
+    
+    if sys is not None: 
+        
+        err_label = 'MC+EXT Stat.\n& Sys. Uncertainty'
+        tot_percent_err =  sys
+        tot_err = [x*y for x, y in zip(n[-1], sys)]
+    
+    else: 
+        ext_percent_err = np.sqrt(ext_counts)/n[-1]
+        mc_percent_err = mc_err/n[-1]
+
+        # add in quadrature 
+        sim_percent_err = np.array([x**2+y**2 for x,y in zip(mc_percent_err, ext_percent_err)])
+        sim_percent_err = np.sqrt(sim_percent_err)
+
+        sim_err = [x*y for x, y in zip(n[-1], sim_percent_err)]
+        
+        err_label = 'MC+EXT Stat.\nUncertainty'
+        
+        tot_err = sim_err
+        tot_percent_err =  sim_percent_err
+
+    
+    low_err = [ x-y for x,y in zip(n[-1], tot_err) ]
+    low_err.insert(0, low_err[0])
+
+    high_err = [ x+y for x,y in zip(n[-1], tot_err)]
+    high_err.insert(0, high_err[0])
+    
+    ax1.fill_between(nbins, low_err, high_err, step="pre",
+                    facecolor=(.25, .25, .25, 0), 
+                     edgecolor='darkgray', #(.8627, .8627, .8627, 1),  
+                     hatch='.....', 
+                     linewidth=0.0, zorder=2, 
+                     label=err_label)
+    
+    # simulation outline 
+    tot = list([0, n[-1][0]])+list(n[-1])+[0]
+    b_step = list([b[0]])+list(b)+list([b[-1]])
+    ax1.step(b_step, tot, color='saddlebrown', linewidth=2, zorder=3, alpha=0.85)
+    
             
     ############################ PLOT THE RATIO ############################
             
     # ratio plot  
     ax2.errorbar(data_bins, n_data/n[-1], yerr=get_ratio_err(n_data, n[-1]), xerr=x_err, color="black", fmt='o')
     ax2.set_xlim(xlow, xhigh)
-    ax2.set_ylim(0.35, 1.65)
-    ax2.yaxis.grid(linestyle=':')
+    ax2.set_ylim(0, 2)
+    #ax2.yaxis.grid(linestyle="-", color='black', alpha=0.7)
     
     # horizontal line at 1 
     ax2.axhline(1.0, color='black', lw=1, linestyle='--')
     
     # MC ratio error - stat + sys 
-    low_err_ratio = [ 1 - x for x in tot_err_percent ]
+    low_err_ratio = [ 1 - x for x in tot_percent_err ]
     low_err_ratio.insert(0, low_err_ratio[0])
     
-    high_err_ratio = [ 1 + x for x in tot_err_percent ]
+    high_err_ratio = [ 1 + x for x in tot_percent_err ]
     high_err_ratio.insert(0, high_err_ratio[0])
 
-    ax2.fill_between(nbins, low_err_ratio, high_err_ratio, step="pre", facecolor="peru", edgecolor="peru", 
-                     linewidth=0.0, zorder=2, alpha=0.5)
-
+    ax2.fill_between(nbins, low_err_ratio, high_err_ratio, step="pre", facecolor=(.25, .25, .25, 0), 
+                     edgecolor='darkgray', #(.8627, .8627, .8627, 1.0), 
+                     hatch='.....', 
+                     linewidth=0.0, zorder=1)
     
     if x_label: 
         ax2.set_xlabel(x_label, fontsize=15)
@@ -822,9 +778,10 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
     ax2.set_ylabel("DATA / (MC+EXT)", fontsize=15)
     
     #ax2.set_yticks([0.5, 0.75, 1, 1.25, 1.5])
-    #ax2.set_xticks([0.1, 0.4, 0.7, 1.0, 1.3, 1.6])
+    #ax1.set_xticks([0, 1])
+    #ax2.set_xticks([0, 1])
     
-    ax1.legend(prop={"size":10}, ncol=3, frameon=False)
+    ax1.legend(prop={"size":10}, ncol=2, frameon=False)
     if log: 
         ax1.set_yscale('log')
         
@@ -832,25 +789,27 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
         
     ## chi2 calculation ## 
     chi2 = 0 
-    for i,j in zip(n[-1], n_data): 
-        if i>0: 
-            chi2 = chi2 + ((i-j)*(i-j))/i
-            #print(i, j, chi2)
     
-    if xtext: 
-        ax1.text(xtext, ytext, "$\\chi^{2}$/n = "+str(round(chi2, 2))+"/"+str(len(b)-1), fontsize='x-large', horizontalalignment='right')
+    for i in range(len(n[-1])): 
+        if tot_err[i]==0: 
+            continue 
+        else: 
+            chi2 = chi2 + ((n_data[i] - n[-1][i] )**2 / tot_err[i]**2)  #((i-j)*(i-j))/i stat only chi2
+        #print('bin', i, 'chi2 addition', chi2 + ((n_data[i] - n[-1][i] )**2 / tot_err[i]**2))
+    
+    if text: 
+        ax1.text(xtext, ytext, text+"\n$\\chi^{2}$/n = "+str(round(chi2, 2))+"/"+str(len(b)-1), 
+                 fontsize='x-large', horizontalalignment='right')
     
     if save: 
-        if (norm=='area'): 
-            plt.savefig(plots_path+var+"_"+save_label+"_area.pdf", transparent=True, bbox_inches='tight') 
-        else: 
-            plt.savefig(plots_path+var+"_"+save_label+"_pot.pdf", transparent=True, bbox_inches='tight') 
+        print('saving to: ', plots_path)
+        plt.savefig(plots_path+var+"_"+save_label+".svg", bbox_inches='tight')#, dpi=1000) 
 
     plt.show()
     
     d = {
-        'percent_errors': percent_errors, 
-        'tot_err_percent' : tot_err_percent, 
+        #'percent_errors': percent_errors, 
+        #'tot_err_percent' : tot_err_percent, 
         'mc_counts' : n[-1], 
         'data_counts': n_data   
     }
@@ -860,7 +819,7 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='pot', bdt_s
 ########################################################################
 # Return a table of the selection performance 
 # normalized to data POT
-def selection_performance(cuts, datasets, norm, gen, ISRUN3):
+def selection_performance(cuts, datasets, gen, ISRUN3):
 
     #################
     # cuts --> list of strings of the cuts applied
@@ -871,17 +830,16 @@ def selection_performance(cuts, datasets, norm, gen, ISRUN3):
     # no cuts on these yet, only separated into their truth categories 
     infv = datasets['infv']
     outfv = datasets['outfv']
-    #cosmic = datasets['cosmic']
     ext = datasets['ext']
     
-    norm = 'totweight_overlay'
-    ext_norm = 'pot_scale_overlay'
+    norm = 'totweight_data'
+    ext_norm = 'pot_scale'
             
     df_out = pd.DataFrame(columns=['cut', '# signal after cut',  'efficiency (%)', 'rel. eff. (%)', 
                                 'purity (%)', 'purity (MC only, %)'])
     
     sig_gen_norm = np.nansum(gen)
-    print("total # of signal generated in FV (normalized to standard overlay): "+ str(sig_gen_norm))
+    print("total # of signal generated in FV (normalized to DATA): "+ str(sig_gen_norm))
     
     num_signal = []
     pur = []
@@ -893,7 +851,7 @@ def selection_performance(cuts, datasets, norm, gen, ISRUN3):
     # start with the number of signal events 
     sig_last = sig_gen_norm #round( np.nansum(infv.query(signal)[norm]), 1 )
     
-    slimmed_variables = ['nslice==1', reco_in_fv_query, 'contained_fraction>0.9','shr_energy_tot_cali>0.07']
+    slimmed_variables = ['nslice==1', reco_in_fv_query, 'contained_fraction>0.9']
     
     q = ''
     n=0
@@ -931,16 +889,11 @@ def selection_performance(cuts, datasets, norm, gen, ISRUN3):
         
             infv = infv.query(cut)
             outfv = outfv.query(cut)
-            #cosmic = cosmic.query(cut)
             ext = ext.query(cut)
         
             # how many true signal gets selected?  
             sig_sel_norm = np.nansum(infv.query(signal)[norm]) 
 
-            # how many total selected? normalize to overlay pot
-            #tot_sel_norm = np.nansum(infv[norm])+np.nansum(outfv[norm])+np.nansum(cosmic[norm])+np.nansum(ext[ext_norm]) 
-            #tot_sel_norm_mconly = np.nansum(infv[norm])+np.nansum(outfv[norm])+np.nansum(cosmic[norm]) # do not include EXT
-            
             tot_sel_norm = np.nansum(infv[norm])+np.nansum(outfv[norm])+np.nansum(ext[ext_norm])
             tot_sel_norm_mconly = np.nansum(infv[norm])+np.nansum(outfv[norm]) # do not include EXT
         
@@ -970,16 +923,14 @@ def selection_performance(cuts, datasets, norm, gen, ISRUN3):
     return df_out
 ########################################################################
 # Plot the efficiency - with binomial error bars 
-def plot_eff(var, nbins, xlower, xupper, cut, datasets, isrun3, save=False, x_label=None, ymax=None, norm='totweight_overlay'): 
-    
-    print("FIX: error calculation - should use sum of weights squared ")
+def plot_eff(var, nbins, xlower, xupper, cut, datasets, isrun3, save=False, x_label=None, ymax=None, text=None, xtext=None, ytext=None, x_ticks=None): 
 
     infv = datasets['infv']
  
     
     ############################ Generated signal ############################
 
-    v_sig_gen = generated_signal(isrun3, var, nbins, xlower, xupper)
+    v_sig_gen = generated_signal(isrun3, var, nbins, xlower, xupper, weight='totweight_intrinsic')
     print("# of generated signal in FV: "+str( np.nansum(v_sig_gen ) ) )
 
     
@@ -989,15 +940,16 @@ def plot_eff(var, nbins, xlower, xupper, cut, datasets, isrun3, save=False, x_la
     infv_selected = infv.query(cut)
     signal_sel = infv_selected.query('is_signal==True')
     
-    print("# of selected signal in FV: "+str( np.nansum(signal_sel[norm] ) ) )
+    print("# of selected signal in FV: "+str( np.sum( signal_sel['ppfx_cv']*signal_sel['weightSplineTimesTune'] ) ) )
 
     v_sig_sel, b_sig_sel, p_sig_sel = plt.hist(signal_sel[var], 
                                                               nbins, 
                                                               histtype='step', range=[xlower, xupper], 
                                                               label='signal selected in FV',
-                                                              weights=signal_sel[norm])
+                                                              weights=signal_sel['ppfx_cv']*signal_sel['weightSplineTimesTune'])
     plt.close()
     
+    b_sig_sel[-1] = xupper
 
    ############################ Efficiency & stat error #######################
     
@@ -1029,7 +981,6 @@ def plot_eff(var, nbins, xlower, xupper, cut, datasets, isrun3, save=False, x_la
              color='seagreen', ecolor='seagreen', markersize=3) 
     
     plt.xlim(xlower, xupper)
-    plt.title('')
     plt.grid(linestyle=':')
     
     if x_label: 
@@ -1040,10 +991,18 @@ def plot_eff(var, nbins, xlower, xupper, cut, datasets, isrun3, save=False, x_la
     if ymax: 
         plt.ylim(0, ymax)
         
+    if text: 
+        plt.text(xtext, ytext, text, fontsize='xx-large', horizontalalignment='center')
+        
+    if x_ticks: 
+        plt.xticks(x_ticks, fontsize=14)
+        
+    else: 
+        plt.xticks(fontsize=14)
+        
     plt.ylabel("Efficiency", fontsize=15)
     plt.tight_layout()
 
-    plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
     
     plots_path = parameters(isrun3)['plots_path']
@@ -1063,25 +1022,24 @@ def plot_eff(var, nbins, xlower, xupper, cut, datasets, isrun3, save=False, x_la
 # updated for modified signal
 def addRelevantColumns(datasets): 
     
-    #mc_bdt = pd.concat([datasets['infv'], datasets['outfv'], datasets['cosmic']], ignore_index=True, sort=True)
     mc_bdt = pd.concat([datasets['infv'], datasets['outfv']], ignore_index=True, sort=True)
     ext_bdt = datasets['ext']
     
     mc_bdt['is_mc'] = True 
     ext_bdt['is_mc'] = False
         
-    mc_bdt['weight'] = mc_bdt['totweight_overlay']
-    ext_bdt['weight'] = ext_bdt['pot_scale_overlay']
+    mc_bdt['weight'] = mc_bdt['totweight_data']
+    ext_bdt['weight'] = ext_bdt['pot_scale']
             
     df_pre = pd.concat([mc_bdt, ext_bdt], ignore_index=True, sort=True)
 
     
     return df_pre
 ########################################################################
-def prep_sets(train, test, query, varlist):
+def prep_sets(train, test, train_query, test_query, varlist):
     
-    train_query = train.query(query)
-    test_query = test.query(query)
+    train_query = train.query(train_query)
+    test_query = test.query(test_query)
     
     # Last column will be signal definition for training ('is_signal')
     X_train, y_train = train_query.iloc[:,:-1], train_query['is_signal']
@@ -1096,7 +1054,6 @@ def prep_sets(train, test, query, varlist):
         X_test.loc[(X_test[column] < -1.0e37) | (X_test[column] > 1.0e37), column] = np.nan
     
     # Training and Testing DMatrices are only comprised of training variable list
-
     dtrain = xgb.DMatrix(data=X_train[varlist], label=y_train)
     dtest = xgb.DMatrix(data=X_test[varlist], label=y_test)
     
@@ -1109,9 +1066,9 @@ def prep_sets(train, test, query, varlist):
     
     return d
 ########################################################################
-def bdt_raw_results(train, test, query, varlist, params, rounds):
+def bdt_raw_results(train, test, train_query, test_query, varlist, params, rounds):
     
-    d = prep_sets(train, test, query, varlist)
+    d = prep_sets(train, test, train_query, test_query, varlist)
     
     queried_train_df = d['X_train']
     queried_test_df = d['X_test']
@@ -1126,20 +1083,20 @@ def bdt_raw_results(train, test, query, varlist, params, rounds):
     
     return queried_test_df, model
 ########################################################################
-def main_BDT(datasets, query, rounds, training_parameters, isrun3, test_size=0.5):
+def main_BDT(datasets, train_query, test_query, rounds, training_parameters, isrun3, test_size=0.5):
     
     # combine MC & EXT datasets with additional columns needed for BDT analysis
     df_pre = addRelevantColumns(datasets)
     
     # compute the scale weight for model parameters 
-    scale_weight = len(df_pre.query(query + ' and is_signal == False')) / len(df_pre.query(query + ' and is_signal == True'))
+    scale_weight = len(df_pre.query(train_query + ' and is_signal == False')) / len(df_pre.query(train_query + ' and is_signal == True'))
     print("scale pos weight (ratio of negative to positive) = "+str(scale_weight))
     
     # Split arrays or matrices into random train and test subsets
     # stratify keeps the same signal/background ratio 
     df_pre_train, df_pre_test = train_test_split(df_pre, test_size=test_size, random_state=17, stratify=df_pre['is_signal'])
 
-    varlist = parameters(isrun3)['bdt_training_parameters']
+    varlist = training_parameters
     
     #model params
     params = {
@@ -1159,7 +1116,8 @@ def main_BDT(datasets, query, rounds, training_parameters, isrun3, test_size=0.5
         'eval_metric': ['error', 'auc', 'aucpr']
     }
     
-    bdt_results_df, bdt_model  = bdt_raw_results(df_pre_train, df_pre_test, query, training_parameters, params, rounds)
+    # datasets get cleaned in bdt_raw_results (prep_sets)
+    bdt_results_df, bdt_model  = bdt_raw_results(df_pre_train, df_pre_test, train_query, test_query, training_parameters, params, rounds)
     
     d = {
         'bdt_results_df': bdt_results_df, 
@@ -1172,7 +1130,9 @@ def main_BDT(datasets, query, rounds, training_parameters, isrun3, test_size=0.5
     return d
 ########################################################################    
 # BDT Metric evaluation
-def bdt_metrics(train, test, query, training_parameters, scale_weight, ISNUEBAR=False, verbose=False): 
+def bdt_metrics(train, test, train_query, test_query, training_parameters, isrun3, save=False, verbose=False): 
+    
+    scale_weight = len(train.query(train_query+' and is_signal==True')) / len(train.query(train_query+' and is_signal==False'))
     
     #model params
     params = {
@@ -1192,8 +1152,8 @@ def bdt_metrics(train, test, query, training_parameters, scale_weight, ISNUEBAR=
         'eval_metric': ['error', 'auc', 'aucpr']
     }
     
-    dtrain = prep_sets(train, test, query, training_parameters)['dtrain']
-    dtest = prep_sets(train, test, query, training_parameters)['dtest']
+    dtrain = prep_sets(train, test, train_query, test_query, training_parameters)['dtrain']
+    dtest = prep_sets(train, test, train_query, test_query, training_parameters)['dtest']
 
     watchlist = [(dtrain, 'train'), (dtest, 'valid')]
 
@@ -1201,14 +1161,67 @@ def bdt_metrics(train, test, query, training_parameters, scale_weight, ISNUEBAR=
 
     model = xgb.train(params, dtrain, 1000, watchlist, early_stopping_rounds=50, evals_result=progress, verbose_eval=verbose)
 
-    for metric in progress['train'].keys():
-        plt.figure(figsize=(10, 5))
-        plt.plot(progress['train'][metric], color='orange', label='train '+metric, markersize=3)
-        plt.plot(progress['valid'][metric], color='blue', label='test '+metric, markersize=3)  
-        plt.grid(linestyle=":")
-        plt.legend(loc='upper right', prop={"size":13})
-        plt.xlabel('# of rounds')
-        plt.show()
+    # AUC
+    plt.figure(figsize=(10, 5))
+    
+    plt.plot(progress['train']['auc'], color='orange', label='AUC (Training Sample)', markersize=3)
+    plt.plot(progress['valid']['auc'], color='blue', label='AUC (Test Sample)', markersize=3)
+    
+    plt.grid(linestyle=":")
+    plt.legend(loc='best', prop={"size":13})
+    
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    
+    
+    if isrun3: 
+        plt.title('RHC Run 3 BDT AUC', fontsize=15)
+        plt.ylim(0.68, 0.79)
+    else: 
+        plt.title('FHC Run 1 BDT AUC', fontsize=15)
+    
+    plt.xlabel('Number of Boosting Rounds', fontsize=14)
+    #plt.ylim(0.75, 0.8)
+    
+    if save: 
+        plt.savefig(parameters(isrun3)['plots_path']+"BDT_AUC.pdf", transparent=True, bbox_inches='tight') 
+    plt.show()
+    
+    
+    # AUC PR
+    plt.figure(figsize=(10, 5))
+    
+    plt.plot(progress['train']['aucpr'], color='orange', label='AUC PR (Training Sample)', markersize=3)
+    plt.plot(progress['valid']['aucpr'], color='blue', label='AUC PR (Test Sample)', markersize=3)
+    
+    plt.grid(linestyle=":")
+    plt.legend(loc='upper left', prop={"size":13})
+    
+    if isrun3: 
+        plt.title('RHC Run 3 BDT AUCPR', fontsize=15)
+    else: 
+        plt.title('FHC Run 1 BDT AUCPR', fontsize=15)
+        
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    
+    plt.xlabel('Number of Boosting Rounds', fontsize=14)
+    #plt.ylim(0.7, 0.9)
+    
+    if save: 
+        plt.savefig(parameters(isrun3)['plots_path']+"BDT_AUCPR.pdf", transparent=True, bbox_inches='tight') 
+    plt.show()
+    
+    
+    #for metric in progress['train'].keys():
+    #    plt.figure(figsize=(10, 5))
+    #    plt.plot(progress['train'][metric], color='orange', label='train '+metric, markersize=3)
+        #plt.plot(progress['valid'][metric], color='blue', label='test '+metric, markersize=3)  
+    #    plt.grid(linestyle=":")
+    #    plt.legend(loc='upper right', prop={"size":13})
+    #    plt.xlabel('# of rounds')
+    #    plt.show()
+        
 ########################################################################
 # BDT Purity/Efficiency 
 def bdt_pe(df, xvals, gen, split):
@@ -1223,19 +1236,21 @@ def bdt_pe(df, xvals, gen, split):
     purErr=[]
     eff=[]
     effErr=[]
-    
+
     for cut_val in xvals:
         
         cut_val = round(cut_val, 3)
         
-        tot_sel_sig = np.nansum(df.query('is_signal == True and BDT_score > '+str(cut_val))['totweight_overlay'])
+        tot_sel_sig = np.nansum(df.query('is_signal == True and BDT_score > '+str(cut_val))['totweight_data'])
         tot_sel = np.nansum(df.query('BDT_score > '+str(cut_val))['weight'])
         
         tot_sig = np.nansum(gen)*split # only include the amount of dataset used for TESTING
         
         p = tot_sel_sig / tot_sel
         purity.append(p * 100)
-        purErr.append(math.sqrt(tot_sel_sig) / tot_sel * 100)
+        
+        purErr.append(np.sqrt(np.nansum(df.query('is_signal == True and BDT_score > '+str(cut_val))['totweight_data']**2))/tot_sel*100)
+        #(math.sqrt(tot_sel_sig) / tot_sel * 100)
         
         e = tot_sel_sig / tot_sig
         eff.append(e * 100)
@@ -1258,7 +1273,7 @@ def split_events(df):
     ext_bdt = df.query('is_mc==False')
     outfv_bdt = df.query(out_fv_query+' and is_mc==True')
     #cosmic_bdt = df.query(in_fv_query+' and nu_purity_from_pfp<=0.5 and is_mc==True')
-    infv_bdt = df.query(in_fv_query+' and nu_purity_from_pfp>0.5 and is_mc==True')
+    infv_bdt = df.query(in_fv_query+' and is_mc==True')
     
     # checks 
     print('split_events check:', len(df) == len(ext_bdt)+len(outfv_bdt)+len(infv_bdt))#+len(cosmic))
@@ -1318,7 +1333,7 @@ def bdt_pe_plot(perf, xvals, isrun3, split, save=False):
     
 ########################################################################    
 def bdt_box_plot(results_bdt, xvals, isrun3, second_results_bdt=None, results_box=None, results_box_err=None, save=False, 
-                save_label=None):
+                save_label=None, title=None):
     
     ###################
     # results_bdt --> BDT performance (output of bdt_pe function)
@@ -1336,15 +1351,15 @@ def bdt_box_plot(results_bdt, xvals, isrun3, second_results_bdt=None, results_bo
     pur, purErr, eff, effErr = results_bdt
     
     plt.errorbar(xvals, pur, yerr=purErr, marker='o', color='maroon', label='BDT Purity', markersize=3)
-    plt.errorbar(xvals, eff, yerr=effErr, marker='o', color='green', label='BDT Eff', markersize=3)  
+    plt.errorbar(xvals, eff, yerr=effErr, marker='o', color='green', label='BDT Efficiency', markersize=3)  
     
 
     # Box cut results 
     if results_box: 
         plt.axhline(results_box[0], color='red', 
-                    linestyle='dashed', label='Lin. Sel. Purity ('+str(round(results_box[0], 2))+'%)', linewidth=2)
+                    linestyle='dashed', label='Lin. Sel. Purity ('+str(round(results_box[0], 1))+'%)', linewidth=2)
         plt.axhline(results_box[1], color='limegreen', 
-                    linestyle='dashed', label='Lin. Sel. Eff. ('+str(round(results_box[1], 2))+'%)', linewidth=2)
+                    linestyle='dashed', label='Lin. Sel. Eff. ('+str(round(results_box[1], 1))+'%)', linewidth=2)
     
     if results_box_err:
         
@@ -1364,6 +1379,8 @@ def bdt_box_plot(results_bdt, xvals, isrun3, second_results_bdt=None, results_bo
     plt.yticks(np.arange(0,105,5), fontsize=12)
     plt.legend(prop={"size":12}, loc='upper left')
     plt.ylim(0, 100)
+    if title: 
+        plt.title(title, fontsize=15)
     #plt.tight_layout()
     if save: 
         plt.savefig(plots_path+"BDT_performance_"+save_label+".pdf", transparent=True, bbox_inches='tight') 

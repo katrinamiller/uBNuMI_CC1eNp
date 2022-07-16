@@ -6,11 +6,11 @@ void slimmer_qualcuts(TString fname)
 {
   
    // Get old file, old tree and set top branch address
-   TString dirorigin = "/uboone/data/users/kmiller/ntuples/run1/";
-   TString dir = "/uboone/data/users/kmiller/ntuples/run1/";
+   TString dirorigin = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run3b/cv/";
+   TString dir = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run3b/cv_slimmed/qualcuts/";
    TString fullpath = dirorigin + fname + ".root";
    std::cout<<"Name "<< fullpath<<" "<<fname <<"\n"; 
-   TString foutname = dir + "qualcuts/" + fname + ".root";
+   TString foutname = dir + fname + ".root";
    gSystem->ExpandPathName(dir);
  
    TFile oldfile(fullpath);

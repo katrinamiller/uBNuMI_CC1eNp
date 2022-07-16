@@ -37,92 +37,85 @@ from top import *
 ##############################
 ###### file information ######
 
-run = 'run1'
 
 fold = "nuselection"
 tree = "NeutrinoSelectionFilter"
 
-path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/"+run+"/systematics/detvar/slimmed/loosecuts/"
-
 variables = [
-    "selected", "nu_pdg", "shr_theta", "true_e_visible", 
-    "trk_score_v", 
-    "shr_tkfit_dedx_Y", "ccnc", "n_tracks_contained", 
-    "NeutrinoEnergy2",
+    "nu_pdg", "ccnc",
+    "true_nu_vtx_x", "true_nu_vtx_y" , "true_nu_vtx_z", 
+    "swtrig_pre", "npion", "nproton", "npi0",
     "reco_nu_vtx_sce_x","reco_nu_vtx_sce_y","reco_nu_vtx_sce_z",
+    "n_tracks_contained", 
+    "shr_tkfit_dedx_Y",  
     "shrsubclusters0","shrsubclusters1","shrsubclusters2", # number of sub-clusters in shower
     "trkshrhitdist2",
-    "nproton", "nu_e", "n_showers_contained", "nu_purity_from_pfp", 
-    "shr_phi", "trk_phi", "trk_theta",
-    "shr_score", 
-    "trk_energy", "tksh_distance", "tksh_angle",
-    "npi0",
-    "shr_energy_tot_cali",  
+    "n_showers_contained",
+    "shr_score", "tksh_angle", 
+    "trk_energy", 
+    "tksh_distance",
+    "shr_energy_tot_cali", 
+    "shr_energy_cali", 
     "nslice", 
-    "contained_fraction",
-    "true_nu_vtx_x", "true_nu_vtx_y" , "true_nu_vtx_z", 
-    "npion", "shr_energy_cali", 
-    "shrmoliereavg", "shr_px", "shr_py", "shr_pz",
-    "true_nu_px", "true_nu_py", "true_nu_pz", 
-    "elec_e", "proton_e", "mc_px", "mc_py", "mc_pz", "elec_px", "elec_py", "elec_pz", 
-    "swtrig_pre", "ppfx_cv", "mc_pdg", "trkpid", "subcluster", "weightSplineTimesTune"
-    
+    "contained_fraction", 
+    "shrmoliereavg", 
+    "ppfx_cv", "weightSplineTimesTune", "NeutrinoEnergy2"
 ]
 
-##############################
-#### nue intrinsic stuff #####
-
-# intrinsic sample contains in AV TPC events ONLY, & only CC events (overlay is entire cryo)
-in_AV_query = "-1.55<=true_nu_vtx_x<=254.8 and -116.5<=true_nu_vtx_y<=116.5 and 0<=true_nu_vtx_z<=1036.8"
-nueCC_query = 'abs(nu_pdg)==12 and ccnc==0 and '+in_AV_query
-
-signal = 'nu_pdg==12 and ccnc==0 and nproton>0 and npion==0 and npi0==0'
-
-##############################
-###### input parameters ######
-
-# xsec_variables = #["NeutrinoEnergy2_GeV", "nu_e", "shr_energy_cali", "n_tracks_contained", "tksh_angle"]
-# bins = [500, 500, 500, 12, 200]
-# xlow = [0, 0, 0, 0, -1]
-# xhigh = [5, 5, 5, 12, 1]
-
-
-# need to add ppfx cv weight ? 
 
 class NuMIDetSys: 
      
     ##########################################################################################
     # Create selected event rate histograms for all variations & store to ROOT file 
-    # POT scaling is to the nominal standard overlay sample used for the  analysis 
-    def makehist_detsys(self, variation, isrun3, output_file, xvar, bins, cut=None, useBDT=False): 
+    # POT scaling is to the beam on POT
+    def makehist_detsys(self, variation, isrun3, output_file, xvar, bins, cut=None, useBDT=False, 
+                       background_subtraction=False): 
         
-        if isrun3: 
-            print('need to update for RHC!')
-        
-        cv_pot = detvar_run1_fhc.get("CV")
+        print("Make sure to update for Run 2 detsys, and to store background subtraction!")
+
+        if not isrun3: 
+            run = 'run1'
+            standard_dict = detvar_run1_fhc
+            intrinsic_dict = intrinsic_detvar_run1_fhc
+            
+        else:
+            run = 'run3b'
+            standard_dict = detvar_run3_rhc
+            intrinsic_dict = intrinsic_detvar_run3_rhc
+           
+            
+        input_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/"+run+"/systematics/detvar/" #+ "slimmed/qualcuts/"
+    
+        beamon_pot = parameters(isrun3)['beamon_pot']
+       
+        print("Opening output file: "+ output_file) 
+        fout = ROOT.TFile.Open(input_path+'makehist_detsys_output/'+output_file, "UPDATE")
         
         # grab detector variaton files
-        standard_input_file = path + 'standard_overlay/' + "neutrinoselection_filt_run1_overlay_"+variation+".root"
-        intrinsic_input_file = path + 'intrinsic/' + "neutrinoselection_filt_run1_overlay_"+variation+"_intrinsic.root"
+        standard_input_file = input_path + "standard_overlay/neutrinoselection_filt_"+run+"_overlay_"+variation+".root"
+        intrinsic_input_file = input_path + "intrinsic/neutrinoselection_filt_"+run+"_overlay_"+variation+"_intrinsic.root"
         
         f_standard = uproot.open(standard_input_file)[fold][tree]
         f_intrinsic = uproot.open(intrinsic_input_file)[fold][tree]
-        
-        print("Opening files for "+variation)
-        
-        # open new file to store det. var. histograms
-        fout = ROOT.TFile.Open(path+'makehist_detsys_output/'+output_file, "UPDATE")
     
-        # create pandas dataframes & fix weights
+        uproot_v = [f_standard, f_intrinsic]
+        
+        print("Opening files for "+variation+ " using xvar: " + xvar)
+        
+        # create dataframe 
         df_standard = f_standard.pandas.df(variables, flatten=False)
-        df_standard['NeutrinoEnergy2_GeV'] = df_standard['NeutrinoEnergy2']/1000
-        
         df_intrinsic = f_intrinsic.pandas.df(variables, flatten=False)
-        df_intrinsic['NeutrinoEnergy2_GeV'] = df_intrinsic['NeutrinoEnergy2']/1000
         
+        for i, df in enumerate([df_standard, df_intrinsic]):
+            
+            up = uproot_v[i]
+            trk_llr_pid_v = up.array('trk_llr_pid_score_v')
+            trk_id = up.array('trk_id')-1 
+            trk_llr_pid_v_sel = awkward.fromiter([pidv[tid] if tid<len(pidv) else 9999. for pidv,tid in zip(trk_llr_pid_v,trk_id)])
+            df['trkpid'] = trk_llr_pid_v_sel
+            df['subcluster'] = df['shrsubclusters0'] + df['shrsubclusters1'] + df['shrsubclusters2']
         
-        for df in [df_standard, df_intrinsic]: 
-            # df = df.query('trk_energy>0.04')
+            df['NeutrinoEnergy2_GeV'] = df['NeutrinoEnergy2']/1000
 
             df.loc[ df['weightSplineTimesTune'] <= 0, 'weightSplineTimesTune' ] = 1.
             df.loc[ df['weightSplineTimesTune'] == np.inf, 'weightSplineTimesTune' ] = 1.
@@ -130,19 +123,22 @@ class NuMIDetSys:
             df.loc[ np.isnan(df['weightSplineTimesTune']) == True, 'weightSplineTimesTune' ] = 1.
             
             # bool for is signal vs is not signal 
-            df['is_signal'] = np.where((df.swtrig_pre == 1) & (df.nu_purity_from_pfp>0.5)
+            df['is_signal'] = np.where((df.swtrig_pre == 1) 
                              & (df.nu_pdg==12) & (df.ccnc==0) & (df.nproton>0) & (df.npion==0) & (df.npi0==0)
                              & (10 <= df.true_nu_vtx_x) & (df.true_nu_vtx_x <= 246)
                              & (-106 <= df.true_nu_vtx_y) & (df.true_nu_vtx_y <= 106)
                              & (10 <= df.true_nu_vtx_z) & (df.true_nu_vtx_z <= 1026), True, False)
             
             print('is_signal check:', len(df) == len(df.query('is_signal==True')) + len(df.query('is_signal==False')))
-            #print('raw event count before cuts, signal, background = ', len(df_sel), len(df_sel.query(signal)), len(df_sel.query(not_signal)))
-
         
-        df_standard['pot_scale'] = cv_pot/detvar_run1_fhc.get(variation)    
-        df_intrinsic['pot_scale'] = cv_pot/intrinsic_detvar_run1_fhc.get(variation+'_intrinsic')  
-            
+        # software trigger 
+        df_standard = df_standard.query('swtrig_pre==1')
+        df_intrinsic = df_intrinsic.query('swtrig_pre==1')
+        
+        # scale to beam on POT
+        df_standard['pot_scale'] = beamon_pot/standard_dict.get(variation)    
+        df_intrinsic['pot_scale'] = beamon_pot/intrinsic_dict.get(variation+'_intrinsic')  
+    
         # remove nue CC events 
         print("# nueCC in AV in standard overlay det. sys. sample = "+str(len(df_standard.query(nueCC_query))))
         len1 = len(df_standard)
@@ -157,19 +153,20 @@ class NuMIDetSys:
     
         # load BDT model 
         if useBDT: 
+            
             print('Using BDT')
             
             # load bdt model 
             bdt_model = xgb.Booster({'nthread': 4})
             bdt_model.load_model(parameters(isrun3)['bdt_model'])
-            training_parameters = parameters(isrun3)['bdt_training_parameters']
- 
+
             df_bdt = overlay.copy()
 
-            # clean datasets & apply BDT model  
+            # clean datasets 
             for column in training_parameters:
                 df_bdt.loc[(df_bdt[column] < -1.0e37) | (df_bdt[column] > 1.0e37), column] = np.nan
     
+            # apply BDT model  
             df_test = xgb.DMatrix(data=df_bdt[training_parameters])
             preds = bdt_model.predict(df_test)
             df_bdt['BDT_score'] = preds
@@ -181,32 +178,44 @@ class NuMIDetSys:
             
         if cut: 
             df_sel = df_sel.query(cut)
+         
+        # with GENIE & PPFX weights - full selected event rate
+        h = TH1F(variation, xvar+" ("+variation+" - Full Selected Event Rate)", len(bins)-1, np.array(bins))
+        w = list(df_sel['ppfx_cv']*df_sel['weightSplineTimesTune']*df_sel['pot_scale']) # scales to standard overlay POT
+        
+        # create python histogram
+        print("Creating python histogram....")  
+        counts = plt.hist(df_sel[xvar], bins=bins, range=[bins[0], bins[-1]], weights=w)[0]
+        plt.close()
         
 
+        # store to ROOT histo
+        bincenters = 0.5*(np.array(bins)[1:]+np.array(bins)[:-1])
+ 
+        print("Filling ROOT histogram....")  
+        for j in range(len(counts)): 
+                #h.Fill(bincenters[j], counts[j])
+                h.SetBinContent(j+1, counts[j])
+                print(h.GetBinContent(j+1))
+
+        if background_subtraction: 
+            if variation=="CV": # store CV background for subtraction later on 
             
-        # no GENIE or PPFX weights 
-        # h_uw = TH1F(variation+"_UW", xvar+" ("+variation+" - Unweighted)", bins, xlow, xhigh)
-        
-        # with GENIE & PPFX weights - full selected event rate
-        h = TH1D(variation, xvar+" ("+variation+" - Full Selected Event Rate)", len(bins)-1, np.array(bins))
-        w = list(df_sel['ppfx_cv']*df_sel['weightSplineTimesTune']*df_sel['pot_scale']) # scales to standard overlay POT
-    
-        for j in range(len(df_sel)): 
-            #h_uw.Fill(list(df_sel[xvar])[j], list(df_sel['pot_scale'])[j])
-            h.Fill(list(df_sel[xvar])[j], w[j])
+                print('Storing CV Background for Subtraction ....')
+                print('is_signal check:', len(df_sel) == len(df_sel.query('is_signal==True')) + len(df_sel.query('is_signal==False')))
+
+                df_bkgd_sel = df_sel.query('is_signal==False')
+
+                h_cv_bkgd = TH1D(variation+'_Bkgd', xvar+" ("+variation+" - Selected Background)", len(bins)-1, np.array(bins))
+                w_cv_bkgd = list(df_bkgd_sel['ppfx_cv']*df_bkgd_sel['weightSplineTimesTune']*df_bkgd_sel['pot_scale']) 
+
+                bkgd_counts = plt.hist(df_bkgd_sel[xvar], bins=bins, range=[bins[0], bins[-1]], weights=w_cv_bkgd)[0]
+                plt.close()
+
+                for j in range(len(bkgd_counts)): 
+                    h_cv_bkgd.SetBinContent(j+1, bkgd_counts[j])
+                    print(h_cv_bkgd.GetBinContent(j+1))
             
-            
-        if variation=="CV": # store CV background for subtraction later on 
-            print('Storing CV Background for Subtraction ....')
-            print('is_signal check:', len(df_sel) == len(df_sel.query('is_signal==True')) + len(df_sel.query('is_signal==False')))
-            df_bkgd_sel = df_sel.query('is_signal==False')
-            
-            # checks 
-            h_cv_bkgd = TH1D(variation+'_Bkgd', xvar+" ("+variation+" - Selected Background)", len(bins)-1, np.array(bins))
-            w_cv_bkgd = list(df_bkgd_sel['ppfx_cv']*df_bkgd_sel['weightSplineTimesTune']*df_bkgd_sel['pot_scale']) 
-            
-            for j in range(len(df_bkgd_sel)): 
-                h_cv_bkgd.Fill(list(df_bkgd_sel[xvar])[j], w_cv_bkgd[j])
         
         h.SetDirectory(0)
     
@@ -220,16 +229,15 @@ class NuMIDetSys:
             fout.cd(xvar)
         
         h.Write()
-        #h_uw.Write()
-        
-        if variation=='CV': 
-            h_cv_bkgd.Write()
-        
-            
         h.Reset()
-        #h_uw.Reset()
-    
+        
+        if background_subtraction and variation=='CV': 
+            h_cv_bkgd.Write()
+            h_cv_bkgd.Reset()
+          
+
         fout.Close()
+    
     
     ##########################################################################################
     # Pull varied event rates & plot against CV (for the detector systematic samples)
@@ -237,36 +245,57 @@ class NuMIDetSys:
     def plot_variations(self, var, bins, file, ISRUN3, axis_label=None, save=False, plot=False, background_subtraction=False): 
         
         if ISRUN3: 
-            'need to update this function!'
-            #break 
+            run = 'run3b'
+            d = detvar_run3_rhc
         else: 
+            run = 'run1'
             d = detvar_run1_fhc
+
+            
+        path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/"+run+"/systematics/detvar/" #+ "slimmed/qualcuts/"
         
         # always scale to data pot
-        pot_scaling = parameters(ISRUN3)['beamon_pot'] / d['CV']
+        #pot_scaling = parameters(ISRUN3)['beamon_pot'] / d['CV']
         
         f = uproot.open(path+'makehist_detsys_output/'+file)[var]
         
-        if background_subtraction: 
-            hcv_bkgd = f['CV_CVBkgd']
-            cv_bkgd = [z*pot_scaling for z in list(hcv_bkgd.values)]
-            #print('cv background', cv_bkgd)
-        
         # dictionary for variation counts 
         variation_counts = {}
-    
-        fig = plt.figure(figsize=(8, 5)) 
         
+        # store CV 
+        hcv = list(f['CV'].values)
+        
+        if background_subtraction: 
+            hcv_bkgd = f['CV_Bkgd']
+            cv_bkgd = list(hcv_bkgd.values)
+            print('hcv', hcv)
+            hcv = [y-z for y,z in zip(hcv, cv_bkgd)] # background subtracted 
+            print('cv background', cv_bkgd)
+            print('hcv', hcv)
+            
+            
+        variation_counts['CV'] = hcv
+        
+        # bin width 
+        x_err = [ round(abs(bins[x+1]-bins[x])/2, 3) for x in range(len(bins)-1) ]
+        bin_centers = []
+        for a in range(len(bins)-1): 
+            bin_centers.append(round(bins[a] + (bins[a+1]-bins[a])/2, 3))
+        
+
         # loop over the variations 
-        for v in list(d.keys()): 
+        for v in list(d.keys()):
+            
+            if "CV" in v: 
+                continue
     
             # grab histograms
             h = f[v]
             
             if background_subtraction: 
-                variation_counts[v] = [(y*pot_scaling)-z for y,z in zip(list(h.values), cv_bkgd)]
+                variation_counts[v] = [ y-z for y,z in zip(list(h.values), cv_bkgd) ]
             else: 
-                variation_counts[v] = [y*pot_scaling for y in list(h.values)]
+                variation_counts[v] = list(h.values)
             
             # h_uw = f[v+"_UW"]
             
@@ -294,57 +323,49 @@ class NuMIDetSys:
             
             #if xsec_units: 
             #    y_scaled = [(1E39) * y/(n_target*flux) for y in y_scaled]
-                
-            # compute bin centers 
-            bin_centers = []
             
-            for a in range(len(bins)-1): 
-                bin_centers.append(round(bins[a] + (bins[a+1]-bins[a])/2, 3))
         
             if plot: 
-                if "CV" in v:
-                    
-                    #print('cv', variation_counts[v])
+                
+                fig = plt.figure(figsize=(8, 5)) 
                 
                 # calculate MC stat error from (unweighted, unscaled) overlay POT - obsolete - use sum of weighted squares
                 #frac_stat_err = [np.sqrt(k)/k for k in y_uw]
                 #stat_err = [a*b for a,b in zip(frac_stat_err, y_scaled)]
+ 
+                plt.hist(bin_centers, bins, histtype='step', 
+                         range=[bins[0], bins[-1]], weights=variation_counts[v], 
+                         color='cornflowerblue', linewidth=0.5, label='UV')
                 
-                    plt.hist(bin_centers, bins, histtype='step', 
-                             range=[bins[0], bins[-1]], weights=variation_counts[v], color='black', linewidth=2)
-                
-                #plt.errorbar(bin_centers, y_scaled, yerr=stat_err, fmt='none', color='black', linewidth=2)
-                
-                else: 
-                    plt.hist(bin_centers, bins, histtype='step', 
-                         range=[bins[0], bins[-1]], weights=variation_counts[v], color='cornflowerblue', linewidth=0.5)
+                plt.errorbar(bin_centers, hcv, 
+                             xerr=x_err, #yerr=stat_err, 
+                             fmt='none', color='black', linewidth=2, label='CV')
 
-
-        if plot: 
          
-            plt.ylabel("$\\nu$ / "+str(parameters(ISRUN3)['beamon_pot'])+" POT ", fontsize=15)
+                plt.ylabel("$\\nu$ / "+str(parameters(ISRUN3)['beamon_pot'])+" POT ", fontsize=15)
         
-            if axis_label: 
-                plt.xlabel(axis_label, fontsize=14)
-            else: 
-                plt.xlabel(var, fontsize=14)
+                if axis_label: 
+                    plt.xlabel(axis_label, fontsize=14)
+                else: 
+                    plt.xlabel(var, fontsize=14)
 
-            plt.ylim(bottom=0)
+                plt.ylim(bottom=0)
 
-            plt.xticks(fontsize=14)
-            plt.yticks(fontsize=14)
+                plt.xticks(fontsize=14)
+                plt.yticks(fontsize=14)
+                plt.legend(fontsize=14, frameon=False)
 
-            if background_subtraction: 
-                plt.title("Selected Event Rate (Background Subtracted)", fontsize=14)
-            else: 
-                plt.title("Selected Event Rate", fontsize=14)
+                if background_subtraction: 
+                    plt.title(v + " (Background Subtracted)", fontsize=14)
+                else: 
+                    plt.title(v, fontsize=14)
         
-            if save : 
-                plots_path = parameters(ISRUN3)['plots_path']
-                plt.savefig(plots_path+str(var)+"_DetSys.pdf", transparent=True, bbox_inches='tight') 
-                print('saving to: '+plots_path)
+            #if save : 
+            #    plots_path = parameters(ISRUN3)['plots_path']
+            #    plt.savefig(plots_path+str(var)+"_DetSys.pdf", transparent=True, bbox_inches='tight') 
+            #    print('saving to: '+plots_path)
         
-            plt.show()
+                plt.show()
         
         
         return variation_counts

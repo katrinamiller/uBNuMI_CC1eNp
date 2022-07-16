@@ -66,10 +66,10 @@ float get_max_proton_idx(std::vector<float> *mc_pdg, std::vector<float> mc_p){
 
 
 // construct the true opening angle & add it to the ntuples
-void add_openingangle() { 
+void add_openingangle(TString file) { 
 
 	
-	TFile*f = new TFile("/uboone/data/users/kmiller/ntuples/run2/neutrinoselection_filt_55f2f593-7f5d-4b16-91ba-ea0abcc48e22.root", "UPDATE"); 
+	TFile*f = new TFile(file, "UPDATE"); 
 	TTree* t = (TTree*)f->Get("nuselection/NeutrinoSelectionFilter"); 
 	TDirectory* d = (TDirectory*)f->Get("nuselection"); 
 	

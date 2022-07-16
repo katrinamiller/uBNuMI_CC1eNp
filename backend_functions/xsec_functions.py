@@ -100,51 +100,58 @@ def best_bin(lhs, rhs, x, df, horn, save):
 
 ##################################################################################################
 # plot the detector resolution 
-def true_reco_res(true_var, reco_var, df, horn, ymax, save): 
+def true_reco_res(true_var, reco_var, df, ISRUN3, ymax=None, save=False): 
+
     
-    print('update!')
-    
-    if horn=='fhc': 
-        pot = '2.4E22' #'2.0E20'#'9.23E20'
-        
-    elif horn=='rhc': 
-        pot = '2.5E22' #'5.0E20' #'11.95E20'
-        
-    elif horn=='both': 
-        pot = '4.9E22' #'7.0E20'#'2.12E21'
+    pot = parameters(ISRUN3)['beamon_pot']
+    print("normalizing to POT", pot)
           
-    true_values = df.query(signal)[true_var]
-    reco_values = df.query(signal)[reco_var]
+    true_values = df.query('is_signal==True')[true_var]
+    reco_values = df.query('is_signal==True')[reco_var]
     
-    if reco_var=="NeutrinoEnergy2": 
-        reco_values = reco_values/1000
+    if reco_var == 'tksh_angle': 
+        res = np.array((true_values-reco_values))
+        
+    else: 
+        res = np.array((true_values-reco_values)/true_values)
     
-    res = np.array((true_values-reco_values)/true_values)
+    mu, sigma = weighted_avg_and_std(res, df.query('is_signal==True')['totweight_data'])
     
-    mu, sigma = weighted_avg_and_std(res, df.query(signal)['totweight_intrinsic'])
 
     fig = plt.figure(figsize=(8, 5))
-    n, b, p = plt.hist(res, histtype='step', weights=df.query(signal)['totweight_intrinsic'], color='orange', range=[-1, 1])
+    n, b, p = plt.hist(res, 50, histtype='step', weights=df.query('is_signal==True')['totweight_data'], color='orange')
 
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
-    plt.xlabel('(true - reco) / true', fontsize=14)
-    plt.ylabel('$\\nu$ / '+pot+' POT', fontsize=14)
+    
+    if reco_var == 'tksh_angle': 
+        plt.xlabel('true - reco', fontsize=14)
+    
+    else: 
+        plt.xlabel('(true - reco) / true', fontsize=14)
+    plt.ylabel('$\\nu$ / '+str(pot)+' POT', fontsize=14)
     
     # Plot the PDF.
+    
+    bincenters = 0.5*(b[1:]+b[:-1])
+    
+    #mu = np.average(bincenters, weights=n)
+    #sigma = np.sqrt( np.average( ((bincenters-mu)**2) , weights=n) ) 
+    
     xmin, xmax = plt.xlim()
     x = np.linspace(xmin, xmax, 100)
     p = norm.pdf(x, mu, sigma)
     area = np.sum(np.diff(b)*n)
+    
+    # fit a gaussian
 
     plt.plot(x, p*area, 'k', linewidth=2, color='red')
 
-    if horn=='fhc': 
+    if not ISRUN3: 
         title = "FHC: mu = %.2f,  std = %.2f" % (mu, sigma)
-    elif horn=='rhc': 
+    elif ISRUN3: 
         title = "RHC: mu = %.2f,  std = %.2f" % (mu, sigma)
-    elif horn=='both': 
-        title = "FHC+RHC: mu = %.2f,  std = %.2f" % (mu, sigma)
+
     plt.title(title, fontsize=15)
     #plt.ylim(0, ymax)
     plt.tight_layout()
@@ -153,6 +160,7 @@ def true_reco_res(true_var, reco_var, df, horn, ymax, save):
         plt.savefig(plots_path+horn+"/"+horn+"_res.pdf", transparent=True, bbox_inches='tight')
         
     plt.show()
+
     
 ##################################################################################################
 # plot the selected truth-level distribution & efficiency as a function of true bin 
@@ -408,23 +416,18 @@ def smear_matrix(true_var, reco_var, bins, isrun3, selected_signal,
     
     if eff: 
     
-        # normalize by the GENERATED events in a true bin: 
-        gen = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], cuts=None) # scales to standard overlay 
-        pot_scale = parameters(isrun3)['beamon_pot']/parameters(isrun3)['overlay_pot']
-        gen = [x*pot_scale for x in gen] 
+        # normalize by the GENERATED signal events in a true bin: 
+        gen = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], cuts=None)[0] # scales to data POT
 
-    
         # for each truth bin (column): 
         for col in range(len(bins)-1): 
-            
             for row in range(len(bins)-1): 
                 smear_eff_array[row][col] =  hout[0].T[row][col] / gen[col] 
-            
             
         # now plot
         if plot: 
             fig = plt.figure(figsize=(13, 9))
-            plt.pcolor(bins, bins, smear_eff_array, cmap='OrRd', vmax=0.35)
+            plt.pcolor(bins, bins, smear_eff_array, cmap='OrRd', vmax=0.1)
 
             # Loop over data dimensions and create text annotations.
             for i in range(len(bins)-1): # reco bins (rows)
@@ -439,8 +442,8 @@ def smear_matrix(true_var, reco_var, bins, isrun3, selected_signal,
                         binx_centers = hout[1][j]+(hout[1][j+1]-hout[1][j])/2
                         biny_centers = hout[2][i]+(hout[2][i+1]-hout[2][i])/2
 
-                        plt.text(binx_centers, biny_centers, round(smear_eff_array[i][j], 2), 
-                             ha="center", va="center", color=col, fontsize=12)
+                        #plt.text(binx_centers, biny_centers, round(smear_eff_array[i][j], 2), 
+                        #     ha="center", va="center", color=col, fontsize=12)
 
             plt.title(title + ' - Smearing & Efficiency '+str(parameters(isrun3)['beamon_pot'])+' POT', fontsize=15)
 
