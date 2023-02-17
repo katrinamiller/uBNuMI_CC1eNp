@@ -79,9 +79,9 @@ def dirt_unisim(xvar, bins, cv_total, cv_dirt, percent_variation, isrun3=None, p
     return cov_dict
 
 ########################################################################
-def pot_unisims(xvar, ncv, bins, percent_variation, isrun3, plot=False, x_label=None, title=None, bkgd_cv_counts=None): 
+def pot_unisims(xvar, ncv, bins, percent_variation, isrun3, plot=False, x_label=None, title=None): 
 
-    data_pot = parameters(isrun3)['beamon_pot'] 
+    data_pot = str(parameters(isrun3)['beamon_pot'])
     
     if x_label: 
         x = x_label
@@ -92,16 +92,17 @@ def pot_unisims(xvar, ncv, bins, percent_variation, isrun3, plot=False, x_label=
     up = [count+count*percent_variation for count in ncv]
     dn = [count-count*percent_variation for count in ncv]
         
-    if bkgd_cv_counts: # subtract off the CV background event rate
+    #if bkgd_cv_counts: # subtract off the CV background event rate
         
-        print('Implementing background subtraction ....')
+    #    print('Implementing background subtraction ....')
 
-        up = [a-b for a,b in zip(up,bkgd_cv_counts)]
-        dn = [a-b for a,b in zip(dn,bkgd_cv_counts)]
-        cv = [a-b for a,b in zip(ncv,bkgd_cv_counts)]
+    #    up = [a-b for a,b in zip(up,bkgd_cv_counts)]
+    #    dn = [a-b for a,b in zip(dn,bkgd_cv_counts)]
+    #    cv = [a-b for a,b in zip(ncv,bkgd_cv_counts)]
     
-    else: 
-        cv = ncv
+    #else: 
+    
+    cv = ncv
      
     uni_counts = [up, dn]
     
@@ -123,11 +124,11 @@ def pot_unisims(xvar, ncv, bins, percent_variation, isrun3, plot=False, x_label=
         if title: 
             plt.title(title, fontsize=16)
 
-        plt.ylabel(str(data_pot) + ' POT', fontsize=15)
+        plt.ylabel(data_pot + ' POT', fontsize=15)
 
         plt.show()
     
-    cov_dict = calcCov(xvar, bins, cv, cv, uni_counts, plot=plot, axis_label='Reco '+x, pot=data_pot, isrun3=isrun3, title='POT counting')
+    cov_dict = calcCov(xvar, bins, cv, cv, uni_counts, plot=plot, axis_label='Reco '+x, pot=data_pot, isrun3=isrun3)
     
     #sys_err = [np.sqrt(x) for x in np.diagonal(cov_dict['cov'])]
     
@@ -176,9 +177,8 @@ def calcDetSysError(var, bin_edges, file, ISRUN3, intrinsic=False, plot=False, p
 ########################################################################
 # grab the event counts for systematic variations 
 # for input into calcCov
-def plotSysVariations(reco_var, true_var, bins, xlow, xhigh, cuts, datasets, sys_var, universes, isrun3, background_subtraction=False, plot=False, save=False, axis_label=None, ymax=None, pot=None, text=None, xtext=None, ytext=None, title=None, x_ticks=None): 
+def plotSysVariations(reco_var, true_var, bins, xlow, xhigh, cuts, datasets, sys_var, universes, isrun3, background_subtraction=None, plot=False, save=False, axis_label=None, ymax=None, pot=None, text=None, xtext=None, ytext=None, title=None, x_ticks=None): 
 
-    print("CHECK: should include EXT to properly take the fractional covariance?") 
     
     ############################################################
         
@@ -199,7 +199,6 @@ def plotSysVariations(reco_var, true_var, bins, xlow, xhigh, cuts, datasets, sys
             else: 
                 cv_generated_signal, nu_generated = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], weight='totweight_data', genie_sys='knob'+title+'up')
                 
-
     plots_path = parameters(isrun3)['plots_path']
     
     ############################################################
@@ -213,8 +212,7 @@ def plotSysVariations(reco_var, true_var, bins, xlow, xhigh, cuts, datasets, sys
         outfv = datasets['outfv'].copy().query(cuts)
     
     # total CV event rate (S+B)
-    nu_selected = pd.concat([infv.copy(), outfv.copy()], 
-                            ignore_index=True, sort=True) 
+    nu_selected = pd.concat([infv.copy(), outfv.copy()], ignore_index=True, sort=True) 
     
     ncv, bcv, pcv = plt.hist(nu_selected[reco_var], bins, weights=nu_selected[cv_weight])
     plt.close()
@@ -225,6 +223,8 @@ def plotSysVariations(reco_var, true_var, bins, xlow, xhigh, cuts, datasets, sys
         
         ncv_bkgd = plt.hist(nu_selected_background[reco_var], bins, weights=nu_selected_background[cv_weight])[0]
         plt.close()
+        
+        #ncv_bkgd = [4.351890811739091, 2.3529093590530237,2.9222633345981994,4.481129901616696,7.2883077383370685]
         
         ncv = [a-b for a,b in zip(ncv, ncv_bkgd)] 
         
@@ -255,7 +255,7 @@ def plotSysVariations(reco_var, true_var, bins, xlow, xhigh, cuts, datasets, sys
         if not "Genie" in sys_var: 
 
             # get the UV weights
-            nu_selected['weight_sys'] = [ x*y for x, y in zip(sys_weight, nu_selected[cv_weight]) ]
+            nu_selected['weight_sys'] = [ (x*y) for x, y in zip(sys_weight, nu_selected[cv_weight]) ]
             
             # get the binned UV event rate 
             n, b, p = plt.hist(nu_selected[reco_var], bins, weights=nu_selected['weight_sys'])
@@ -295,7 +295,6 @@ def plotSysVariations(reco_var, true_var, bins, xlow, xhigh, cuts, datasets, sys
                 n = [a-b for a,b in zip(n, ncv_bkgd)]
                 
                 # divide out the systematic event rate change
-                
                 if sys_var=='weightsGenie': 
                     sys_weight_generated = list(nu_generated[sys_var].str.get(u)) # UV weights for generated signal 
                     nu_generated['weight_sys'] = [ x*y for x,y in zip(sys_weight_generated,nu_generated[cv_weight]/nu_generated['weightTune']) ]  
@@ -395,9 +394,11 @@ def plotSysVariations(reco_var, true_var, bins, xlow, xhigh, cuts, datasets, sys
     
 ########################################################################
 # compute covariance & correlation matrices 
-def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, axis_label=None, pot=None, isrun3=False, title=None): 
+def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, axis_label=None, pot=None, isrun3=False, xticks=None, xhigh=None): 
     
-    plots_path = parameters(isrun3)['plots_path']
+    # ncv nu is the neutrino event rate -- i.e. what gets varied in the systematics 
+    # ncv total is the total event rate -- (MC + EXT or estimated signal)
+    # when background subtracting these two are the same  
     
     # compute the cov matrix 
     cov = [ [0]*(len(bins)-1) for x in range(len(bins)-1) ]
@@ -431,6 +432,7 @@ def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, ax
                 
                 if ncv_total[i]*ncv_total[j] != 0: 
                     frac_cov[i][j] += c/(ncv_total[i]*ncv_total[j])
+                    #frac_cov[i][j] = c/(ncv_total[i]*ncv_total[j])
             
     #####################################################
     
@@ -441,14 +443,19 @@ def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, ax
             
         cbar = plt.colorbar()
         cbar.ax.tick_params(labelsize=14)
-        #if pot: 
-            #cbar.set_label(label="$\\nu$ / "+pot, fontsize=15)
+        if pot: 
+            cbar.set_label(label="$\\nu^{2}$ / "+pot+"$^{2}$", fontsize=15)
         
-        plt.xticks([0.02, 0.22, 0.42, 0.62, 0.82 , 1.22], fontsize=14)
-        plt.yticks([0.02, 0.22, 0.42, 0.62, 0.82 , 1.22],fontsize=14)
+        plt.xticks(xticks, fontsize=13)
+        plt.yticks(xticks,fontsize=13)
         
-        plt.xlim(0.02, 2.5)
-        plt.ylim(0.02, 2.5)
+        if xhigh: 
+            plt.xlim(bins[0], xhigh)
+            plt.ylim(bins[0], xhigh)
+            
+        else: 
+            plt.xlim(bins[0], bins[-1])
+            plt.ylim(bins[0], bins[-1])
 
         if axis_label is not None: 
             plt.xlabel(axis_label, fontsize=15)
@@ -457,26 +464,25 @@ def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, ax
             plt.xlabel(var, fontsize=15)
             plt.ylabel(var, fontsize=15)
 
-        if title: 
-            plt.title('Covariance ('+title+')', fontsize=15)
+        plt.title('Covariance Matrix', fontsize=16)
         
         if save: 
-            plt.savefig(plots_path+var+"_cov.pdf", transparent=True, bbox_inches='tight') 
-            print('saving to: '+plots_path)
+            plt.savefig(save+var+"_cov.pdf", transparent=True, bbox_inches='tight') 
+            print('saving to: '+save)
         plt.show()
         
+        ##################################
         # fractional covariance 
         fig = plt.figure(figsize=(10, 6))
         
-        plt.pcolor(bins, bins, frac_cov, cmap='OrRd', edgecolors='k')
+        plt.pcolor(bins, bins, frac_cov, cmap='OrRd', edgecolors='k')#, vmin=0, vmax=.03)
             
         cbar = plt.colorbar()
         cbar.ax.tick_params(labelsize=14)
-        #if pot: 
-            #cbar.set_label(label="$\\nu$ / "+pot, fontsize=15)
         
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
+        
+        if pot: 
+            cbar.set_label(label="$\\nu^{2}$ / "+pot+"$^{2}$", fontsize=15)
 
         if axis_label is not None: 
             plt.xlabel(axis_label, fontsize=15)
@@ -484,13 +490,22 @@ def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, ax
         else: 
             plt.xlabel(var, fontsize=15)
             plt.ylabel(var, fontsize=15)
+            
+        plt.xticks(xticks, fontsize=13)
+        plt.yticks(xticks,fontsize=13)
+        
+        if xhigh: 
+            plt.xlim(bins[0], xhigh)
+            plt.ylim(bins[0], xhigh)
+            
+        else: 
+            plt.xlim(bins[0], bins[-1])
+            plt.ylim(bins[0], bins[-1])
 
-        if title: 
-            plt.title('Fractional Covariance ('+title+')', fontsize=15)
+        plt.title('Fractional Covariance Matrix', fontsize=16)
         
         if save: 
-            plt.savefig(plots_path+var+"_frac_cov.pdf", transparent=True, bbox_inches='tight') 
-            print('saving to: '+plots_path)
+            plt.savefig(save+var+"_frac_cov.pdf", transparent=True, bbox_inches='tight') 
         plt.show()
         
     #####################################################    
@@ -498,21 +513,23 @@ def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, ax
 
     for i in range(len(cov)): 
         for j in range(len(cov[i])): 
+            
+            #print(i, j, cov[i][j], cov[i][i], cov[j][j])
 
             if np.sqrt(cov[i][i])*np.sqrt(cov[j][j]) != 0: 
-                cor[i][j] = cov[i][j] / np.sqrt(cov[i][i])*np.sqrt(cov[j][j])
+                cor[i][j] = cov[i][j] / (np.sqrt(cov[i][i])*np.sqrt(cov[j][j]))
+            
+            #print(cor[i][j])
     
     #####################################################
     
     if plot: 
         fig = plt.figure(figsize=(10, 6))
 
-        plt.pcolor(bins, bins, cor, cmap='OrRd', edgecolors='k')#, vmin=0, vmax=1)
+        plt.pcolor(bins, bins, cor, cmap='OrRd', edgecolors='k', vmin=-1, vmax=1)
         cbar = plt.colorbar()
         cbar.ax.tick_params(labelsize=14)
-        
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
+    
 
         if axis_label is not None: 
             plt.xlabel(axis_label, fontsize=15)
@@ -521,10 +538,23 @@ def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, ax
             plt.xlabel(var, fontsize=15)
             plt.ylabel(var, fontsize=15)
             
-        if title: 
-            plt.title('Correlation ('+title+')', fontsize=15)
+        plt.xticks(xticks, fontsize=13)
+        plt.yticks(xticks,fontsize=13)
+        
+        if pot: 
+            cbar.set_label(label="$\\nu^{2}$ / "+pot+"$^{2}$", fontsize=15)
+        
+        if xhigh: 
+            plt.xlim(bins[0], xhigh)
+            plt.ylim(bins[0], xhigh)
+            
+        else: 
+            plt.xlim(bins[0], bins[-1])
+            plt.ylim(bins[0], bins[-1])
+            
+        plt.title('Correlation Matrix', fontsize=16)
         if save: 
-            plt.savefig(plots_path+var+"_corr.pdf", transparent=True, bbox_inches='tight') 
+            plt.savefig(save+var+"_cor.pdf", transparent=True, bbox_inches='tight') 
         plt.show()
         
     #####################################################
@@ -554,23 +584,24 @@ def plotFullCov(frac_cov_dict, var, cv, bins, xlow, xhigh, x_ticks=None, save=Fa
     
     # add elements of the same index together 
     for source in keys: 
-        tot_frac_cov = [ [x+y for x,y in zip(a,b)] for a,b in zip(tot_frac_cov, frac_cov_dict[source])]
+        tot_frac_cov = [ [x+y for x,y in zip(a,b)] for a,b in zip(tot_frac_cov, frac_cov_dict[source]) ]
     
     # plot 
     fig = plt.figure(figsize=(10, 6))
     
     plt.pcolor(bins, bins, tot_frac_cov, cmap='OrRd', edgecolors='k')
     cbar = plt.colorbar()
-    #if pot: 
-    #    cbar.set_label(label="$\\nu$ / "+pot, fontsize=15)
     cbar.ax.tick_params(labelsize=14)
+    if pot: 
+        cbar.set_label(label="$\\nu^{2}$ / "+pot+"$^{2}$", fontsize=15)
         
     if x_ticks: 
         plt.xticks(x_ticks, fontsize=14)
+        plt.yticks(x_ticks, fontsize=14)
     else: 
         plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
     
-    plt.yticks(fontsize=14)
     
     plt.xlim(xlow, xhigh)
     plt.ylim(xlow, xhigh)
@@ -584,8 +615,8 @@ def plotFullCov(frac_cov_dict, var, cv, bins, xlow, xhigh, x_ticks=None, save=Fa
 
     plt.title('Fractional Covariance', fontsize=15)
     
-    if save: 
-            plt.savefig(plots_path+var+"_tot_frac_cov.pdf", transparent=True, bbox_inches='tight') 
+    #if save: 
+    #    plt.savefig(save+var+"_tot_frac_cov.pdf", transparent=True, bbox_inches='tight') 
     plt.show()
     
     
@@ -598,20 +629,22 @@ def plotFullCov(frac_cov_dict, var, cv, bins, xlow, xhigh, x_ticks=None, save=Fa
             
     
     # plot 
+    #fig = plt.figure(figsize=(13, 9))
     fig = plt.figure(figsize=(10, 6))
     
     plt.pcolor(bins, bins, abs_cov, cmap='OrRd', edgecolors='k')
     cbar = plt.colorbar()
-    #if pot: 
-    #    cbar.set_label(label="$\\nu$ / "+pot, fontsize=15)
+    if pot: 
+        cbar.set_label(label="$\\nu^{2}$ / "+pot+"$^{2}$", fontsize=15)
     cbar.ax.tick_params(labelsize=14)
     
     if x_ticks: 
         plt.xticks(x_ticks, fontsize=14)
+        plt.yticks(x_ticks, fontsize=14)
     else: 
         plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
     
-    plt.yticks(fontsize=14)
     
     plt.xlim(xlow, xhigh)
     plt.ylim(xlow, xhigh)
@@ -625,8 +658,8 @@ def plotFullCov(frac_cov_dict, var, cv, bins, xlow, xhigh, x_ticks=None, save=Fa
 
     plt.title('Absolute Covariance', fontsize=15)
     
-    #if save: 
-    #        plt.savefig(plots_path+var+"_tot_abs_cov.pdf", transparent=True, bbox_inches='tight') 
+    if save: 
+        plt.savefig(save+var+"_tot_abs_cov.pdf", transparent=True, bbox_inches='tight') 
     plt.show()
     
     

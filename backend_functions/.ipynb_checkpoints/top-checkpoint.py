@@ -30,7 +30,7 @@ selection_variables = ['nslice', "reco_nu_vtx_sce_x", "reco_nu_vtx_sce_y", "reco
                        'tksh_angle', 'trkshrhitdist2', 'subcluster']
 
 # quality cuts
-BDT_PRE_QUERY = 'nslice==1'
+BDT_PRE_QUERY = 'swtrig_pre==1 and nslice==1'
 BDT_PRE_QUERY += ' and ' + reco_in_fv_query
 BDT_PRE_QUERY +=' and contained_fraction>0.9'
 
@@ -71,7 +71,7 @@ def parameters(ISRUN3):
 
     
    # FHC
-    if not ISRUN3:  
+    if not ISRUN3: 
         
         plots_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/plots/fhc/"
         cv_ntuple_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run1/cv_slimmed/qualcuts/" 
@@ -110,7 +110,7 @@ def parameters(ISRUN3):
         bdt_model = 'BDT_models/bdt_RHC_may2022_subset.model'
         bdt_score_cut = 0.575 
         
-        detsys = 0.133
+        detsys = 0.129 #0.133
         
     # create a dictionary 
     d = { 
@@ -155,7 +155,7 @@ numu_0pi0 = 'swtrig_pre==1 and ( (nu_pdg==14 or nu_pdg==-14) and npi0==0)'
 
 # signal vs. not signal 
 signal = in_fv_query+' and  swtrig_pre==1 and (nu_pdg==12 and ccnc==0 and nproton>0 and npion==0 and npi0==0)'
-not_signal = "swtrig_pre==1 and (" + out_fv_query+' or (nu_pdg!=12) or (nu_pdg==12 and ccnc==1) or (nu_pdg==12 and ccnc==0 and (nproton==0 or npi0>0 or npion>0)))'
+not_signal = "(swtrig_pre==0) or (swtrig_pre==1 and (" + out_fv_query+' or (nu_pdg!=12) or (nu_pdg==12 and ccnc==1) or (nu_pdg==12 and ccnc==0 and (nproton==0 or npi0>0 or npion>0))))'
 
 # for replacing nue CC 
 in_AV_query = "-1.55<=true_nu_vtx_x<=254.8 and -116.5<=true_nu_vtx_y<=116.5 and 0<=true_nu_vtx_z<=1036.8"
@@ -365,7 +365,7 @@ def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweigh
     if var=="NeutrinoEnergy2_GeV": 
         variables.append('NeutrinoEnergy2')
         
-    else: 
+    elif var not in variables: 
         variables.append(var)
     
     
@@ -389,11 +389,12 @@ def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweigh
     df.loc[ df['weightTune'] > 100, 'weightTune' ] = 1.
     df.loc[ np.isnan(df['weightTune']) == True, 'weightTune' ] = 1.
     
-    df['is_signal'] = np.where((df.swtrig_pre == 1) 
+    df['is_signal'] = np.where((df.swtrig_pre == 1)
                              & (df.nu_pdg==12) & (df.ccnc==0) & (df.nproton>0) & (df.npion==0) & (df.npi0==0)
                              & (10 <= df.true_nu_vtx_x) & (df.true_nu_vtx_x <= 246)
                              & (-106 <= df.true_nu_vtx_y) & (df.true_nu_vtx_y <= 106)
-                             & (10 <= df.true_nu_vtx_z) & (df.true_nu_vtx_z <= 1026), True, False)
+                             & (10 <= df.true_nu_vtx_z) & (df.true_nu_vtx_z <= 1026), 
+                               True, False)
     
     if var == 'NeutrinoEnergy2_GeV': 
         df['NeutrinoEnergy2_GeV'] = df['NeutrinoEnergy2']/1000
@@ -440,8 +441,22 @@ def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweigh
         
     else: 
         df_weights = None
+       
+    generated_sumw2 = []
+    if weight=='totweight_data': 
+        
+        for i in range(len(bins)-1): 
+            
+            if i==len(bins)-2: 
+                bin_query = var+'>='+str(bins[i])+' and '+var+'<='+str(bins[i+1])
+            else: 
+                bin_query = var+'>='+str(bins[i])+' and '+var+'<'+str(bins[i+1])
+
+            generated_sumw2.append( sum(df_signal.query(bin_query).totweight_data ** 2) )
+
+
     
-    return n.tolist(), df_weights
+    return n.tolist(), df_weights, generated_sumw2
     
 ########################################################################
 # parameters for the xsec variables 

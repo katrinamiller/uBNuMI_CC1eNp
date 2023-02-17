@@ -33,6 +33,9 @@ from top import *
 import uncertainty_functions
 from uncertainty_functions import * 
 
+import ROOT
+from ROOT import TH1F, TH2F, TDirectory, TH1D
+
 
 ########################################################################
 ################## inputs to functions: ################################
@@ -118,11 +121,22 @@ def addAngles(df):
     return df
 ########################################################################
 # use offline flux weights
-def offline_flux_weights(mc_df): 
+def offline_flux_weights(df, ISRUN3): 
     
-    nu_flav = list(mc_df[0]['nu_pdg'])
-    angle = list(mc_df[0]['thbeam'])
-    true_energy = list(mc_df[0]['nu_e'])
+    if ISRUN3: 
+        print("No ppfx maps for RHC!")
+    
+    else: 
+        f = ROOT.TFile.Open("/uboone/data/users/kmiller/uBNuMI_CCNp/ppfx_maps.root", "READ")
+    
+    numu_map = f.Get("numu_ratio")
+    numubar_map = f.Get("numubar_ratio")
+    nue_map = f.Get("nue_ratio")
+    nuebar_map = f.Get("nuebar_ratio")
+    
+    nu_flav = list(df['nu_pdg'])
+    angle = list(df['thbeam'])
+    true_energy = list(df['nu_e'])
 
     fluxweights = []
 
@@ -140,10 +154,13 @@ def offline_flux_weights(mc_df):
         
         fluxweights.append( h.GetBinContent(h.FindBin(true_energy[i], angle[i])) )
 
-    mc_df[0]['weightFlux'] = fluxweights
-    mc_df[1]['weightFlux'] = [1 for i in range(len(mc_df[1]))] # for now 
+    df['ppfx_cv'] = fluxweights
+    #mc_df[0]['weightFlux'] = fluxweights
+    #mc_df[1]['weightFlux'] = [1 for i in range(len(mc_df[1]))] # for now 
     
-    return mc_df
+    f.Close()
+    
+    return df
     
 ########################################################################
 # error on the data/MC ratio 
@@ -153,7 +170,11 @@ def get_ratio_err(n_data, n_mc):
     for i in range(len(n_data)): 
         
         # divide the counting error by n_mc - the MC error is handled by the systematics band 
-        err.append( math.sqrt(n_data[i])/n_mc[i] )
+        
+        if n_data[i]>=0: 
+            err.append( math.sqrt(n_data[i])/n_mc[i] )
+        else: 
+            err.append(0)
 
    # err = []
    # for i in range(len(n_data)): 
@@ -251,7 +272,7 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
                 mc_weights[category] = categories[category][mc_norm]
         
     # event counts
-    counts = event_counts(datasets, var, xlow, xhigh, cuts, ext_norm, mc_norm, plot_data=False, bdt_scale=bdt_scale)
+    counts = event_counts(datasets, var, nbins[0], nbins[-1], cuts, ext_norm, mc_norm, plot_data=False, bdt_scale=bdt_scale)
      
     # legend 
     leg = {
@@ -409,6 +430,7 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
    
     # plot format stuff
     plt.legend(loc='best', prop={"size":10}, ncol=3, frameon=False)
+    
         
     if y_label: 
         plt.ylabel(y_label, fontsize=15)
@@ -553,16 +575,14 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
 
 ########################################################################
 # Data/MC comparisons
-# NEED TO ADD: GENIE UNISIMS, NON-nueCC DET SYS
-def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, save=False, save_label=None, log=False, x_label=None, y_label=None, ymax=None, sys=None, text=None, xtext=None, ytext=None): 
+def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, save=False, save_label=None, log=False, x_label=None, y_label=None, ymax=None, sys=None, text=None, xtext=None, ytext=None, ncol=None, x_ticks=None): 
     
     # set the POT & plots_path for plotting
     plots_path = parameters(isrun3)['plots_path']
     
     mc_norm = 'totweight_data'
     ext_norm = 'pot_scale'
-    
-    # apply cuts 
+
     if (cuts==""): 
         infv = datasets['infv']
         outfv = datasets['outfv']
@@ -579,8 +599,12 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     ####### get beam on histogram info #######
     n_data, b_data, p_data = plt.hist(data[var], nbins, range=[xlow, xhigh])
     integral_data = np.nansum(n_data)
-    data_bins = 0.5*(b_data[1:]+b_data[:-1])
     plt.close()
+
+    if var=='tksh_angle': 
+        bincenters = 0.5*(np.array(nbins)[1:]+np.array(nbins)[:-1])
+    else: 
+        bincenters = 0.5*(np.array(nbins[:-1]+[xhigh])[1:]+np.array(nbins[:-1]+[xhigh])[:-1])
 
     ####### get integral for simulated event spectrum #######
     n_sim, b_sim, p_sim = plt.hist([outfv[var], infv[var], ext[var]], 
@@ -612,7 +636,7 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
 
 
     ######## event counts ########
-    counts = event_counts(datasets, var, xlow, xhigh, cuts, ext_norm, mc_norm, plot_data=True, bdt_scale=bdt_scale)
+    counts = event_counts(datasets, var, nbins[0], nbins[-1], cuts, ext_norm, mc_norm, plot_data=True, bdt_scale=bdt_scale)
 
     
     ######## legend ########
@@ -653,8 +677,12 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     ax1.tick_params(axis = 'both', which = 'major', labelsize = 14)
     ax2.tick_params(axis = 'both', which = 'major', labelsize = 14)
     
-    #ax1.set_xticks([0, 1])
-    #ax2.set_xticks([0, 1])
+    ax2.yaxis.grid(linestyle="--", color='black', alpha=0.2)
+    ax2.xaxis.grid(linestyle="--", color='black', alpha=0.2)
+    
+    if x_ticks: 
+        ax1.set_xticks(x_ticks)
+        ax2.set_xticks(x_ticks)
     
 
     n, b, p = ax1.hist([ext[var], 
@@ -688,9 +716,17 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     ############################ PLOT THE BEAM-ON DATA ############################
      
     # calculate the width of each bin 
-    x_err = [ (b[i+1]-b[i])/2 for i in range(len(b)-1) ]
+    #x_err = [ (b[i+1]-b[i])/2 for i in range(len(b)-1) ]
+    
+    x_err = []
+    for x in range(len(bincenters)):
+        if var=='tksh_angle': 
+            x_err.append(round(abs((nbins)[x+1]-(nbins)[x])/2, 3))
+        
+        else: 
+            x_err.append(round(abs((nbins[:-1]+[xhigh])[x+1]-(nbins[:-1]+[xhigh])[x])/2, 3))
 
-    ax1.errorbar(data_bins, n_data, yerr=np.sqrt(n_data), xerr=x_err, 
+    ax1.errorbar(bincenters, n_data, yerr=np.sqrt(n_data), xerr=x_err, 
              color="black", fmt='o', markersize=3, label='DATA: '+str(int(sum(n_data))), zorder=4)
     
     if y_label: 
@@ -750,7 +786,7 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     ############################ PLOT THE RATIO ############################
             
     # ratio plot  
-    ax2.errorbar(data_bins, n_data/n[-1], yerr=get_ratio_err(n_data, n[-1]), xerr=x_err, color="black", fmt='o')
+    ax2.errorbar(bincenters, n_data/n[-1], yerr=get_ratio_err(n_data, n[-1]), xerr=x_err, color="black", fmt='o')
     ax2.set_xlim(xlow, xhigh)
     ax2.set_ylim(0, 2)
     #ax2.yaxis.grid(linestyle="-", color='black', alpha=0.7)
@@ -781,24 +817,30 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     #ax1.set_xticks([0, 1])
     #ax2.set_xticks([0, 1])
     
-    ax1.legend(prop={"size":10}, ncol=2, frameon=False)
+    if ncol: 
+        ax1.legend(prop={"size":10}, ncol=ncol, frameon=False)
+        
+    else:
+        ax1.legend(prop={"size":10}, ncol=3, frameon=False)
+        
     if log: 
         ax1.set_yscale('log')
         
     ############################ FINAL PLOTTING DETAILS ############################
         
     ## chi2 calculation ## 
-    chi2 = 0 
+    #chi2 = 0 
     
-    for i in range(len(n[-1])): 
-        if tot_err[i]==0: 
-            continue 
-        else: 
-            chi2 = chi2 + ((n_data[i] - n[-1][i] )**2 / tot_err[i]**2)  #((i-j)*(i-j))/i stat only chi2
+    #for i in range(len(n[-1])): 
+    #    if tot_err[i]==0 or np.isnan(((n_data[i] - n[-1][i] )**2 / tot_err[i]**2)): 
+    #        continue 
+    #    else: 
+            
+    #        chi2 = chi2 + ((n_data[i] - n[-1][i] )**2 / tot_err[i]**2)  #((i-j)*(i-j))/i stat only chi2
         #print('bin', i, 'chi2 addition', chi2 + ((n_data[i] - n[-1][i] )**2 / tot_err[i]**2))
     
     if text: 
-        ax1.text(xtext, ytext, text+"\n$\\chi^{2}$/n = "+str(round(chi2, 2))+"/"+str(len(b)-1), 
+        ax1.text(xtext, ytext, text, #text+"\n$\\chi^{2}$/n = "+str(round(chi2, 2))+"/"+str(len(b)-1), 
                  fontsize='x-large', horizontalalignment='right')
     
     if save: 
@@ -811,7 +853,10 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
         #'percent_errors': percent_errors, 
         #'tot_err_percent' : tot_err_percent, 
         'mc_counts' : n[-1], 
-        'data_counts': n_data   
+        'data_counts': n_data, 
+        'data_error' : np.sqrt(n_data), 
+        'data_mc_ratio' : n_data/n[-1], 
+        'data_mc_ratio_err' : get_ratio_err(n_data, n[-1])
     }
     
     return d
@@ -866,7 +911,7 @@ def selection_performance(cuts, datasets, gen, ISRUN3):
             else: 
                 q = q + ' and ' + cut
 
-            sig_sel_norm = np.nansum(generated_signal(ISRUN3, 'nu_e', 1, 0, 20, q))
+            sig_sel_norm = np.nansum(generated_signal(ISRUN3, 'nu_e', 1, 0, 20, q)[0])
             
             num_signal.append(round(sig_sel_norm, 1))
             
@@ -930,7 +975,8 @@ def plot_eff(var, nbins, xlower, xupper, cut, datasets, isrun3, save=False, x_la
     
     ############################ Generated signal ############################
 
-    v_sig_gen = generated_signal(isrun3, var, nbins, xlower, xupper, weight='totweight_intrinsic')
+    v_sig_gen = generated_signal(isrun3, var, nbins, xlower, xupper, weight='totweight_intrinsic')[0]
+
     print("# of generated signal in FV: "+str( np.nansum(v_sig_gen ) ) )
 
     
@@ -1224,7 +1270,7 @@ def bdt_metrics(train, test, train_query, test_query, training_parameters, isrun
         
 ########################################################################
 # BDT Purity/Efficiency 
-def bdt_pe(df, xvals, gen, split):
+def bdt_pe(df, xvals, gen_data, gen_intrinsic, split):
     
     ########################
     # df --> dataframe with evaluated BDT_score added 
@@ -1236,25 +1282,32 @@ def bdt_pe(df, xvals, gen, split):
     purErr=[]
     eff=[]
     effErr=[]
+    
 
     for cut_val in xvals:
+    
         
         cut_val = round(cut_val, 3)
+        q = BDT_LOOSE_CUTS+' and BDT_score > '+str(cut_val)
         
-        tot_sel_sig = np.nansum(df.query('is_signal == True and BDT_score > '+str(cut_val))['totweight_data'])
-        tot_sel = np.nansum(df.query('BDT_score > '+str(cut_val))['weight'])
+        # total signal selected
+        tot_sel_sig = np.nansum(df.query(q+' and is_signal == True').weight)
         
-        tot_sig = np.nansum(gen)*split # only include the amount of dataset used for TESTING
+        # total events selected
+        tot_sel = np.nansum(df.query(q).weight)
+        
+        # total signal generated
+        tot_sig = np.nansum(gen_data)*split # only include the amount of dataset used for TESTING
+        tot_sig_intrinsic = np.nansum(gen_intrinsic)*split # for error computation, use the intrinsic event count
         
         p = tot_sel_sig / tot_sel
         purity.append(p * 100)
-        
-        purErr.append(np.sqrt(np.nansum(df.query('is_signal == True and BDT_score > '+str(cut_val))['totweight_data']**2))/tot_sel*100)
-        #(math.sqrt(tot_sel_sig) / tot_sel * 100)
+        purErr.append( p * np.sqrt( sum(df.query(q+' and is_signal==True').weight**2)/sum(df.query(q+' and is_signal==True').weight)**2 + sum(df.query(q).weight**2)/sum(df.query(q).weight)**2 )  *100)
         
         e = tot_sel_sig / tot_sig
         eff.append(e * 100)
-        effErr.append(math.sqrt((e * (1-e)) / tot_sig) * 100)
+        effErr.append(np.sqrt( (e * (1-e)) / tot_sig_intrinsic ) * 100)
+        
         
     d = {
         'purity': purity, 

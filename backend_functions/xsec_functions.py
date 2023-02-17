@@ -328,8 +328,8 @@ def comb_truth_and_eff(true_var, bins, df_infv, df_sel, xlbl, save):
 # plot the smearing matrix 
 # scale to DATA
 # UPDATED 1/24/22
-def smear_matrix(true_var, reco_var, bins, isrun3, selected_signal, 
-                 uv_weights=None, zmax=20, lbl=None, save=False, plot=False, eff=False, norm=None):
+def smear_matrix(true_var, reco_var, bins, xlow, xhigh, isrun3, selected_signal, 
+                 uv_weights=None, zmax=20, lbl=None, save=False, plot=False, eff=False, norm=None, x_ticks=None):
 
     if not isrun3: 
         title = "FHC Selected Signal"
@@ -372,22 +372,26 @@ def smear_matrix(true_var, reco_var, bins, isrun3, selected_signal,
                 smear_array[row][col] =  hout[0].T[row][col] / tot_truth_events
 
     if plot: 
-        for i in range(len(bins)-1): # reco bins i (y axis)
-            for j in range(len(bins)-1): # true bins j (x axis)
-                if smear_array[i][j]>zmax: 
-                    col='white'
-                else: 
-                    col='black'
+        #for i in range(len(bins)-1): # reco bins i (y axis)
+        #    for j in range(len(bins)-1): # true bins j (x axis)
+                #if smear_array[i][j]>zmax: 
+                #    col='white'
+                #else: 
+                #    col='black'
+               # 
+               # binx_center = hout[1][j]+(hout[1][j+1]-hout[1][j])/2
+               # biny_center = hout[2][i]+(hout[2][i+1]-hout[2][i])/2
 
-                binx_centers = hout[1][j]+(hout[1][j+1]-hout[1][j])/2
-                biny_centers = hout[2][i]+(hout[2][i+1]-hout[2][i])/2
-
-                if not np.isnan(smear_array[i][j]):
-                    plt.text(binx_centers, biny_centers, round(smear_array[i][j], 1), 
-                            color=col, ha="center", va="center", fontsize=14)
+                #if not np.isnan(smear_array[i][j]):
+                #    plt.text(binx_center, biny_center, round(smear_array[i][j], 1), 
+                #            color=col, ha="center", va="center", fontsize=14)
          
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
+        if x_ticks: 
+            plt.xticks(x_ticks, fontsize=14)
+            plt.yticks(x_ticks, fontsize=14)
+        
+        plt.xlim(xlow, xhigh)
+        plt.ylim(xlow, xhigh)
 
         cbar = plt.colorbar()
         #cbar.set_label('$\\nu$ / '+pot+' POT', fontsize=15)
@@ -430,26 +434,30 @@ def smear_matrix(true_var, reco_var, bins, isrun3, selected_signal,
             plt.pcolor(bins, bins, smear_eff_array, cmap='OrRd', vmax=0.1)
 
             # Loop over data dimensions and create text annotations.
-            for i in range(len(bins)-1): # reco bins (rows)
-                for j in range(len(bins)-1): # truth bins (cols)
-                    if smear_eff_array[i][j]>0: 
+            #for i in range(len(bins)-1): # reco bins (rows)
+            #    for j in range(len(bins)-1): # truth bins (cols)
+            #        if smear_eff_array[i][j]>0: 
 
-                        if smear_eff_array[i][j]>0.3: 
-                            col = 'white'
-                        else: 
-                            col = 'black'
+            #            if smear_eff_array[i][j]>0.3: 
+            #                col = 'white'
+            #            else: 
+            #                col = 'black'
 
-                        binx_centers = hout[1][j]+(hout[1][j+1]-hout[1][j])/2
-                        biny_centers = hout[2][i]+(hout[2][i+1]-hout[2][i])/2
+             #           binx_centers = hout[1][j]+(hout[1][j+1]-hout[1][j])/2
+             #           biny_centers = hout[2][i]+(hout[2][i+1]-hout[2][i])/2
 
                         #plt.text(binx_centers, biny_centers, round(smear_eff_array[i][j], 2), 
                         #     ha="center", va="center", color=col, fontsize=12)
 
             plt.title(title + ' - Smearing & Efficiency '+str(parameters(isrun3)['beamon_pot'])+' POT', fontsize=15)
 
-            plt.xticks(fontsize=14)
+            plt.xlim(xlow, xhigh)
+            plt.ylim(xlow, xhigh)
+            if x_ticks: 
+                plt.xticks(x_ticks, fontsize=14)
+                plt.yticks(x_ticks, fontsize=14)
             plt.gca().xaxis.tick_bottom()
-            plt.yticks(fontsize=14)
+
             cbar = plt.colorbar()
             #cbar.set_label(pot+' POT (column normalized)', fontsize=15)
             cbar.ax.tick_params(labelsize=14)
