@@ -190,14 +190,14 @@ def plotSysVariations(reco_var, true_var, bins, xlow, xhigh, cuts, datasets, sys
         print("Implementing background subtraction .... ")
         
         if sys_var=='weightsGenie':
-            cv_generated_signal, nu_generated = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], weight='totweight_data', genie_sys=sys_var)
+            cv_generated_signal, nu_generated, generated_sumw2 = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], weight='totweight_data', genie_sys=sys_var)
             print("TOTAL CV GENERATED SIGNAL EVENTS (TRUE) = ", cv_generated_signal)
             
         elif sys_var=='weightsGenieUnisim':
             if title=='RPA': 
-                cv_generated_signal, nu_generated = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], weight='totweight_data', genie_sys=['knobRPAup', 'knobRPAdn'])
+                cv_generated_signal, nu_generated, generated_sumw2 = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], weight='totweight_data', genie_sys=['knobRPAup', 'knobRPAdn'])
             else: 
-                cv_generated_signal, nu_generated = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], weight='totweight_data', genie_sys='knob'+title+'up')
+                cv_generated_signal, nu_generated, generated_sumw2 = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], weight='totweight_data', genie_sys='knob'+title+'up')
                 
     plots_path = parameters(isrun3)['plots_path']
     
@@ -439,7 +439,7 @@ def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, ax
     if plot: 
         fig = plt.figure(figsize=(10, 6))
         
-        plt.pcolor(bins, bins, cov, cmap='OrRd', edgecolors='k')
+        plt.pcolor(bins, bins, cov, cmap='OrRd', edgecolors='k', vmin=0, vmax=75)
             
         cbar = plt.colorbar()
         cbar.ax.tick_params(labelsize=14)
@@ -475,7 +475,7 @@ def calcCov(var, bins, ncv_nu, ncv_total, uni_counts, plot=False, save=False, ax
         # fractional covariance 
         fig = plt.figure(figsize=(10, 6))
         
-        plt.pcolor(bins, bins, frac_cov, cmap='OrRd', edgecolors='k')#, vmin=0, vmax=.03)
+        plt.pcolor(bins, bins, frac_cov, cmap='OrRd', edgecolors='k', vmin=0, vmax=.1)
             
         cbar = plt.colorbar()
         cbar.ax.tick_params(labelsize=14)
@@ -589,7 +589,7 @@ def plotFullCov(frac_cov_dict, var, cv, bins, xlow, xhigh, x_ticks=None, save=Fa
     # plot 
     fig = plt.figure(figsize=(10, 6))
     
-    plt.pcolor(bins, bins, tot_frac_cov, cmap='OrRd', edgecolors='k')
+    plt.pcolor(bins, bins, tot_frac_cov, cmap='OrRd', edgecolors='k', vmin=0, vmax=0.35)
     cbar = plt.colorbar()
     cbar.ax.tick_params(labelsize=14)
     if pot: 
@@ -632,7 +632,7 @@ def plotFullCov(frac_cov_dict, var, cv, bins, xlow, xhigh, x_ticks=None, save=Fa
     #fig = plt.figure(figsize=(13, 9))
     fig = plt.figure(figsize=(10, 6))
     
-    plt.pcolor(bins, bins, abs_cov, cmap='OrRd', edgecolors='k')
+    plt.pcolor(bins, bins, abs_cov, cmap='OrRd', edgecolors='k', vmin=0, vmax=130)
     cbar = plt.colorbar()
     if pot: 
         cbar.set_label(label="$\\nu^{2}$ / "+pot+"$^{2}$", fontsize=15)

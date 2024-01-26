@@ -273,7 +273,6 @@ class NuMIDetSys:
             print('cv background', cv_bkgd)
             print('hcv', hcv)
             
-            
         variation_counts['CV'] = hcv
         
         # bin width 
@@ -282,6 +281,12 @@ class NuMIDetSys:
         for a in range(len(bins)-1): 
             bin_centers.append(round(bins[a] + (bins[a+1]-bins[a])/2, 3))
         
+        
+        fig = plt.figure(figsize=(8, 5))
+
+        plt.hist(bin_centers, bins, histtype='step', 
+                         range=[bins[0], bins[-1]], weights=hcv, 
+                         color='black', linewidth=2, label='CV')
 
         # loop over the variations 
         for v in list(d.keys()):
@@ -296,76 +301,45 @@ class NuMIDetSys:
                 variation_counts[v] = [ y-z for y,z in zip(list(h.values), cv_bkgd) ]
             else: 
                 variation_counts[v] = list(h.values)
-            
-            # h_uw = f[v+"_UW"]
-            
-            #b = [round(var, 2) for var in h.edges] # old bin edges
-            # print(b)
-            # counts = list(h.values)
-            #counts_uw = list(h_uw.values)
-            
-            # store counts for new binning 
-            #y = []
-            #y_uw = []
-            #stat_err = []
-            
-            # now re-bin wider 
-            #for i in range(1, len(bin_edges)): 
-                
-            #    start = b.index(bin_edges[i-1])
-            #    stop = b.index(bin_edges[i])
-                
-            #    y.append(sum(counts[start:stop]))
-            #    y_uw.append(sum(counts_uw[start:stop]))
 
-            # POT scaling for the weighted counts 
-            #y_scaled = [z*pot_scaling for z in y]
-            
-            #if xsec_units: 
-            #    y_scaled = [(1E39) * y/(n_target*flux) for y in y_scaled]
-            
-        
-            if plot: 
-                
-                fig = plt.figure(figsize=(8, 5)) 
-                
-                # calculate MC stat error from (unweighted, unscaled) overlay POT - obsolete - use sum of weighted squares
-                #frac_stat_err = [np.sqrt(k)/k for k in y_uw]
-                #stat_err = [a*b for a,b in zip(frac_stat_err, y_scaled)]
- 
+            if v==1:    
                 plt.hist(bin_centers, bins, histtype='step', 
                          range=[bins[0], bins[-1]], weights=variation_counts[v], 
                          color='cornflowerblue', linewidth=0.5, label='UV')
+            else: 
+                plt.hist(bin_centers, bins, histtype='step', 
+                         range=[bins[0], bins[-1]], weights=variation_counts[v], 
+                         color='cornflowerblue', linewidth=0.5)
                 
-                plt.errorbar(bin_centers, hcv, 
-                             xerr=x_err, #yerr=stat_err, 
-                             fmt='none', color='black', linewidth=2, label='CV')
-
+        if plot:
          
-                plt.ylabel("$\\nu$ / "+str(parameters(ISRUN3)['beamon_pot'])+" POT ", fontsize=15)
+            plt.ylabel("$\\nu$ / "+str(parameters(ISRUN3)['beamon_pot'])+" POT ", fontsize=15)
         
-                if axis_label: 
-                    plt.xlabel(axis_label, fontsize=14)
-                else: 
-                    plt.xlabel(var, fontsize=14)
+            if axis_label: 
+                plt.xlabel(axis_label, fontsize=14)
+            else: 
+                plt.xlabel(var, fontsize=14)
 
-                plt.ylim(bottom=0)
+            plt.ylim(bottom=0)
 
-                plt.xticks(fontsize=14)
-                plt.yticks(fontsize=14)
-                plt.legend(fontsize=14, frameon=False)
+            plt.xticks(fontsize=14)
+            plt.yticks(fontsize=14)
+            plt.legend(fontsize=14, frameon=False)
 
-                if background_subtraction: 
-                    plt.title(v + " (Background Subtracted)", fontsize=14)
-                else: 
-                    plt.title(v, fontsize=14)
+            if background_subtraction: 
+                plt.title(v + " (Background Subtracted)", fontsize=14)
+            else: 
+                plt.title(v, fontsize=14)
         
             #if save : 
             #    plots_path = parameters(ISRUN3)['plots_path']
             #    plt.savefig(plots_path+str(var)+"_DetSys.pdf", transparent=True, bbox_inches='tight') 
             #    print('saving to: '+plots_path)
         
-                plt.show()
+            plt.show()
+            
+        else: 
+            plt.close()
         
         
         return variation_counts

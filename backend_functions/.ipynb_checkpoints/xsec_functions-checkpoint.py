@@ -73,7 +73,7 @@ def best_bin(lhs, rhs, x, df, horn, save):
             title = "Fit results: mu = %.2f,  std = %.2f" % (mu, sigma)
             plt.title(title, fontsize=15)
     
-            plt.xlabel('True Electron Energy [GeV]', fontsize=15)
+           # plt.xlabel('True Electron Energy [GeV]', fontsize=15)
             plt.legend()
             plt.tight_layout()
             
@@ -327,64 +327,41 @@ def comb_truth_and_eff(true_var, bins, df_infv, df_sel, xlbl, save):
 ##################################################################################################
 # plot the smearing matrix 
 # scale to DATA
-# UPDATED 1/24/22
+# UPDATED 8/12/23
 def smear_matrix(true_var, reco_var, bins, xlow, xhigh, isrun3, selected_signal, 
-                 uv_weights=None, zmax=20, lbl=None, save=False, plot=False, eff=False, norm=None, x_ticks=None):
-
-    if not isrun3: 
-        title = "FHC Selected Signal"
-        
-    else: 
-        title = "RHC Selected Signal"
+                 uv_weights=None, zmax=20, lbl=None, plot=False, eff=False, x_ticks=None, title="", 
+                 nuwro=False, nuwro_gen=None):
 
         
     ######################################################   
     ################# SMEARING ONLY ######################
     
+    
+    print('true selected:')
+    print(plt.hist(selected_signal[true_var], bins, weights=selected_signal.totweight_data)[0])
+    print(sum(plt.hist(selected_signal[true_var], bins, weights=selected_signal.totweight_data)[0]))
+    plt.close()
+    
+    print('reco selected: ')
+    print(plt.hist(selected_signal[reco_var], bins, weights=selected_signal.totweight_data)[0])
+    print(sum(plt.hist(selected_signal[reco_var], bins, weights=selected_signal.totweight_data)[0]))
+    plt.close()
+    
     fig = plt.figure(figsize=(11, 8))
     
     if uv_weights is not None: 
         hout = plt.hist2d(selected_signal[true_var], selected_signal[reco_var], bins, 
-                              weights=uv_weights, cmap='OrRd', cmin=0.01)
+                              weights=uv_weights, cmap='OrRd')#, cmin=0.01)
     else: # just do the CV 
         hout = plt.hist2d(selected_signal[true_var], selected_signal[reco_var], bins, 
-                              weights=selected_signal.totweight_data, cmap='OrRd', cmin=0.01)
+                              weights=selected_signal.totweight_data, cmap='OrRd')#, cmin=0.01) # true x, reco y 
         
-    smear_array = hout[0].T #[ [0]*(len(bins)-1) for x in range(len(bins)-1) ]
-    
-    if norm=='column': 
-    # normalize the column (truth bin)
-        for col in range(len(bins)-1): 
+    smear_array = hout[0] # true x, reco y 
+    #print(hout[0])
+    #print(smear_array)
 
-            reco_events_in_column = [ hout[0].T[row][col] for row in range(len(bins)-1) ]
-            tot_reco_events = np.nansum(reco_events_in_column)
-        
-            for row in range(len(bins)-1): 
-                smear_array[row][col] =  hout[0].T[row][col] / tot_reco_events
-                
-    elif norm=='row': # normalize the row (reco bin)
-        for row in range(len(bins)-1): 
-            
-            truth_events_in_row = [ hout[0].T[row][col] for col in range(len(bins)-1) ] 
-            tot_truth_events = np.nansum(truth_events_in_row)
-            
-            for col in range(len(bins)-1): 
-                smear_array[row][col] =  hout[0].T[row][col] / tot_truth_events
 
-    if plot: 
-        #for i in range(len(bins)-1): # reco bins i (y axis)
-        #    for j in range(len(bins)-1): # true bins j (x axis)
-                #if smear_array[i][j]>zmax: 
-                #    col='white'
-                #else: 
-                #    col='black'
-               # 
-               # binx_center = hout[1][j]+(hout[1][j+1]-hout[1][j])/2
-               # biny_center = hout[2][i]+(hout[2][i+1]-hout[2][i])/2
-
-                #if not np.isnan(smear_array[i][j]):
-                #    plt.text(binx_center, biny_center, round(smear_array[i][j], 1), 
-                #            color=col, ha="center", va="center", fontsize=14)
+    if plot: # plot the smearing matrix hout
          
         if x_ticks: 
             plt.xticks(x_ticks, fontsize=14)
@@ -400,13 +377,10 @@ def smear_matrix(true_var, reco_var, bins, xlow, xhigh, isrun3, selected_signal,
             plt.xlabel('True '+lbl, fontsize=15)
             plt.ylabel('Reco '+lbl, fontsize=15)
 
-        plt.title(title+' - Smearing '+str(parameters(isrun3)['beamon_pot'])+' POT', fontsize=15)
+        plt.title('Smearing '+str(parameters(isrun3)['beamon_pot'])+' POT', fontsize=15)
 
         cbar.ax.tick_params(labelsize=14)
         plt.tight_layout()
-        if save: 
-            plt.savefig(plots_path+horn+"/"+horn+"_smear.pdf", transparent=True, bbox_inches='tight') 
-
         plt.show()
     
     else: 
@@ -415,47 +389,60 @@ def smear_matrix(true_var, reco_var, bins, xlow, xhigh, isrun3, selected_signal,
     ##################################################################
     ##### SMEARING & EFFICIENCY ######################################
     
-    smear_eff_array = [ [0]*(len(bins)-1) for x in range(len(bins)-1) ]
+    smear_eff_array = [ [0]*(len(bins)-1) for x in range(len(bins)-1) ] # true x, reco y 
     gen = []
     
     if eff: 
     
         # normalize by the GENERATED signal events in a true bin: 
-        gen = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], cuts=None)[0] # scales to data POT
-
+        
+        if nuwro: 
+            gen = nuwro_gen
+        else: 
+            gen = generated_signal(isrun3, true_var, bins, bins[0], bins[-1], cuts=None)[0] # scales to data POT
+        
         # for each truth bin (column): 
-        for col in range(len(bins)-1): 
-            for row in range(len(bins)-1): 
-                smear_eff_array[row][col] =  hout[0].T[row][col] / gen[col] 
+        for x in range(len(bins)-1): 
+            eff_bin = 0
             
+            for y in range(len(bins)-1): # reco - rows 
+                
+                smear_eff_array[x][y] =  smear_array[x][y] / gen[x] 
+                
+                if not math.isnan(smear_eff_array[x][y]): 
+                    eff_bin += smear_eff_array[x][y]
+              
         # now plot
         if plot: 
             fig = plt.figure(figsize=(13, 9))
-            plt.pcolor(bins, bins, smear_eff_array, cmap='OrRd', vmax=0.1)
+            
+            # pcolor transposes, so account for this
+            plt.pcolor(bins, bins, np.array(smear_eff_array).T, cmap='OrRd', vmin=0, vmax=0.15, edgecolors='k') 
 
             # Loop over data dimensions and create text annotations.
-            #for i in range(len(bins)-1): # reco bins (rows)
-            #    for j in range(len(bins)-1): # truth bins (cols)
-            #        if smear_eff_array[i][j]>0: 
+            for x in range(len(bins)-1): 
+                for y in range(len(bins)-1): 
+                    if smear_eff_array[x][y]>0: 
 
-            #            if smear_eff_array[i][j]>0.3: 
-            #                col = 'white'
-            #            else: 
-            #                col = 'black'
+                        if round(smear_eff_array[x][y], 2)>0.10: 
+                            col = 'white'
+                        else: 
+                            col = 'black'
 
-             #           binx_centers = hout[1][j]+(hout[1][j+1]-hout[1][j])/2
-             #           biny_centers = hout[2][i]+(hout[2][i+1]-hout[2][i])/2
+                        binx_centers = (x_ticks+[xhigh])[x]+((x_ticks+[xhigh])[x+1]-(x_ticks+[xhigh])[x])/2
+                        biny_centers = (x_ticks+[xhigh])[y]+((x_ticks+[xhigh])[y+1]-(x_ticks+[xhigh])[y])/2
 
-                        #plt.text(binx_centers, biny_centers, round(smear_eff_array[i][j], 2), 
-                        #     ha="center", va="center", color=col, fontsize=12)
+                        plt.text(binx_centers, biny_centers, round(smear_eff_array[x][y], 2), 
+                             ha="center", va="center", color=col, fontsize=12)#, fontweight="bold")
 
-            plt.title(title + ' - Smearing & Efficiency '+str(parameters(isrun3)['beamon_pot'])+' POT', fontsize=15)
+            plt.title(title + ' (Smearing & Efficiency)', fontsize=18)
 
             plt.xlim(xlow, xhigh)
             plt.ylim(xlow, xhigh)
             if x_ticks: 
                 plt.xticks(x_ticks, fontsize=14)
                 plt.yticks(x_ticks, fontsize=14)
+            
             plt.gca().xaxis.tick_bottom()
 
             cbar = plt.colorbar()
@@ -464,10 +451,7 @@ def smear_matrix(true_var, reco_var, bins, xlow, xhigh, isrun3, selected_signal,
 
             if lbl: 
                 plt.xlabel('True '+lbl, fontsize=15)
-                plt.ylabel('Reco '+lbl, fontsize=15)
-
-            if save: 
-                plt.savefig(plots_path+horn+"/"+horn+"_smear_eff.pdf", transparent=True, bbox_inches='tight') 
+                plt.ylabel('Reconstructed '+lbl, fontsize=15)
 
             plt.show()
             
@@ -480,7 +464,7 @@ def smear_matrix(true_var, reco_var, bins, xlow, xhigh, isrun3, selected_signal,
     
     smear_dict = {
         "true_generated_counts" : gen, # number of events in each truth bin 
-        "smear_array" : smear_array, 
+        "smear_array" : smear_array,
         "smear_eff_array" : smear_eff_array # additional efficiency scaling , i.e. n_ij / n_j 
     }
 

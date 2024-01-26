@@ -36,6 +36,8 @@ from uncertainty_functions import *
 import ROOT
 from ROOT import TH1F, TH2F, TDirectory, TH1D
 
+from IPython.display import display
+
 
 ########################################################################
 ################## inputs to functions: ################################
@@ -238,8 +240,11 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
                   'numu_CC_Npi0' : infv.query(numu_CC_Npi0), 
                   'numu_NC_0pi0' : infv.query(numu_NC_0pi0), 
                   "numu_CC_0pi0" : infv.query(numu_CC_0pi0), 
+                  "numu_Npi0" : infv.query(numu_Npi0), 
+                  "numu_0pi0" : infv.query(numu_0pi0), 
                   'nue_NC' : infv.query(nue_NC), 
                   'nue_CCother' : infv.query(nue_CCother), 
+                  'nue_other' : infv.query(nue_other), 
                   'nuebar_1eNp' : infv.query(nuebar_1eNp), 
                   'signal' : infv.query(signal),
                   }
@@ -284,6 +289,9 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
         'numu_CC_0pi0' : labels['numu_CC_0pi0'][0]+': '+str(counts['numu_CC_0pi0']), 
         'nue_NC' : labels['nue_NC'][0]+': '+str(counts['nue_NC']), 
         'nue_CCother' : labels['nue_CCother'][0]+': '+str(counts['nue_CCother']),
+        "numu_Npi0" : labels['numu_Npi0'][0]+': '+str(counts['numu_Npi0']), 
+        "numu_0pi0" : labels['numu_0pi0'][0]+': '+str(counts['numu_0pi0']), 
+        "nue_other" : labels['nue_other'][0]+': '+str(counts['nue_other']), 
         'nuebar_1eNp' : labels['nuebar_1eNp'][0]+': '+str(counts['nuebar_1eNp']), 
         'signal' : labels['signal'][0]+': '+str(counts['signal'])
     }
@@ -331,6 +339,9 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
                        infv.query(numu_CC_0pi0)[var],
                        infv.query(nue_NC)[var],
                        infv.query(nue_CCother)[var],
+                       #infv.query(numu_Npi0)[var], 
+                       #infv.query(numu_0pi0)[var], 
+                       #infv.query(nue_other)[var], 
                        infv.query(nuebar_1eNp)[var], 
                        infv.query(signal)[var]],
             nbins, histtype='bar', range=[xlow, xhigh], stacked=True, 
@@ -341,6 +352,9 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
                        labels['numu_CC_0pi0'][1], 
                        labels['nue_NC'][1], 
                        labels['nue_CCother'][1],
+                       #labels['numu_Npi0'][1], 
+                       #labels['numu_0pi0'][1], 
+                       #labels['nue_other'][1], 
                        labels['nuebar_1eNp'][1], 
                        labels['signal'][1]], 
             label=[leg['ext'],
@@ -351,6 +365,9 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
                    leg['numu_CC_0pi0'], 
                    leg['nue_NC'], 
                    leg['nue_CCother'], 
+                   #leg['numu_Npi0'], 
+                   #leg['numu_0pi0'], 
+                   #leg['nue_other'], 
                    leg['nuebar_1eNp'], 
                    leg['signal']
                   ],
@@ -362,6 +379,9 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
                      mc_weights['numu_CC_0pi0'], 
                      mc_weights['nue_NC'], 
                      mc_weights['nue_CCother'], 
+                     #mc_weights['numu_Npi0'], 
+                     #mc_weights['numu_0pi0'], 
+                     #mc_weights['nue_other'], 
                      mc_weights['nuebar_1eNp'], 
                      mc_weights['signal'] 
                      ])
@@ -401,19 +421,20 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
     high_err = [ x+y for x,y in zip(n[-1], tot_err)]
     high_err.insert(0, high_err[0])
     
-    plt.fill_between(nbins, low_err, high_err, step="pre", facecolor=(.25, .25, .25, 0), 
-                     edgecolor='darkgray', 
-                     hatch='.....', 
-                     linewidth=0.0, zorder=2, 
-                     label=err_label)
+    #plt.fill_between(nbins, low_err, high_err, step="pre", facecolor=(.25, .25, .25, 0), 
+    #                 edgecolor='darkgray', 
+    #                 hatch='.....', 
+    #                 linewidth=0.0, zorder=2, 
+    #                 label=err_label)
     
-    #bincenters = 0.5*(b[1:]+b[:-1])
-    #plt.errorbar(bincenters, n[-1], yerr=sim_err, fmt='none', color='black', linewidth=1)
+    bincenters = 0.5*(b[1:]+b[:-1])
+    plt.errorbar(bincenters, n[-1], yerr=sim_err, fmt='none', color='black', linewidth=1)
     
     # simulation outline 
     tot = list([0, n[-1][0]])+list(n[-1])+[0]
     b_step = list([b[0]])+list(b)+list([b[-1]])
-    plt.step(b_step, tot, color='saddlebrown', linewidth=2)
+    #plt.step(b_step, tot, color='saddlebrown', linewidth=2)
+    plt.step(b_step, tot, color='black', linewidth=1)
       
     ##################### Add in oscillated event rate #############################
     
@@ -429,7 +450,7 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
     ############################################################################## 
    
     # plot format stuff
-    plt.legend(loc='best', prop={"size":10}, ncol=3, frameon=False)
+    plt.legend(loc='best', prop={"size":12}, ncol=1, frameon=False)
     
         
     if y_label: 
@@ -464,14 +485,13 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
         plt.text(xtext, ytext, text, fontsize='xx-large', horizontalalignment='right')
     
     if save: 
-        plt.savefig(plots_path+var+"_"+save_label+".svg", transparent=True, bbox_inches='tight') 
+        #plt.savefig(plots_path+var+"_"+save_label+".svg", transparent=True, bbox_inches='tight') 
+        plt.savefig(plots_path+var+"_"+save_label+".pdf", transparent=True, bbox_inches='tight') 
         print('saving to: '+plots_path)
         
     plt.show()
     
     ######################### plot background only #################################
-    
-    
     
     mc_bkgd_err = mc_error(var, nbins, xlow, xhigh, [outfv, infv.query(not_signal)]) 
 
@@ -575,7 +595,7 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
 
 ########################################################################
 # Data/MC comparisons
-def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, save=False, save_label=None, log=False, x_label=None, y_label=None, ymax=None, sys=None, text=None, xtext=None, ytext=None, ncol=None, x_ticks=None): 
+def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, save=False, save_label=None, log=False, x_label=None, ymax=None, sys=None, text=None, xtext=None, ytext=None, ncol=None, x_ticks=None, norm='pot'): 
     
     # set the POT & plots_path for plotting
     plots_path = parameters(isrun3)['plots_path']
@@ -609,8 +629,7 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     ####### get integral for simulated event spectrum #######
     n_sim, b_sim, p_sim = plt.hist([outfv[var], infv[var], ext[var]], 
                                   nbins, range=[xlow, xhigh], stacked=True, 
-                                  weights=[#cosmic[mc_norm], 
-                                           outfv[mc_norm], infv[mc_norm], ext[ext_norm]])
+                                  weights=[outfv[mc_norm], infv[mc_norm], ext[ext_norm]])
     integral_mc = np.nansum(n_sim[-1])
     plt.close()
     
@@ -632,7 +651,14 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
         print('Accounting for test/train split....')
         mc_weights_pot = [[x/bdt_scale for x in y] for y in mc_weights_pot]
 
-    mc_weights = mc_weights_pot
+    if norm=='area':         
+        area_scale = integral_data/integral_mc  
+        
+        for l in mc_weights_pot: 
+            mc_weights.append([ k*area_scale for k in l ])
+            
+    else: 
+        mc_weights = mc_weights_pot
 
 
     ######## event counts ########
@@ -674,8 +700,8 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[1])
     
-    ax1.tick_params(axis = 'both', which = 'major', labelsize = 14)
-    ax2.tick_params(axis = 'both', which = 'major', labelsize = 14)
+    ax1.tick_params(axis = 'both', which = 'major', labelsize = 12)
+    ax2.tick_params(axis = 'both', which = 'major', labelsize = 12)
     
     ax2.yaxis.grid(linestyle="--", color='black', alpha=0.2)
     ax2.xaxis.grid(linestyle="--", color='black', alpha=0.2)
@@ -697,7 +723,6 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
                         infv.query(signal)[var]], 
             nbins, histtype='bar', range=[xlow, xhigh], stacked=True, 
             color=[labels['ext'][1], 
-                        #labels['cosmic'][1], 
                         labels['outfv'][1], 
                         labels['numu_NC_Npi0'][1], 
                         labels['numu_CC_Npi0'][1], 
@@ -727,11 +752,9 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
             x_err.append(round(abs((nbins[:-1]+[xhigh])[x+1]-(nbins[:-1]+[xhigh])[x])/2, 3))
 
     ax1.errorbar(bincenters, n_data, yerr=np.sqrt(n_data), xerr=x_err, 
-             color="black", fmt='o', markersize=3, label='DATA: '+str(int(sum(n_data))), zorder=4)
+             color="black", fmt='o', markersize=3, label='NuMI Data: '+str(int(sum(n_data))), zorder=4)
     
-    if y_label: 
-        ax1.set_ylabel("$\\nu$ / "+y_label+ " POT", fontsize=15)
-    
+    ax1.set_ylabel("Events / Bin", fontsize=15)
     ax1.set_xlim(xlow, xhigh)
     
     if ymax:
@@ -788,8 +811,8 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     # ratio plot  
     ax2.errorbar(bincenters, n_data/n[-1], yerr=get_ratio_err(n_data, n[-1]), xerr=x_err, color="black", fmt='o')
     ax2.set_xlim(xlow, xhigh)
-    ax2.set_ylim(0, 2)
-    #ax2.yaxis.grid(linestyle="-", color='black', alpha=0.7)
+    ax2.set_ylim(-.3, 2.3)
+
     
     # horizontal line at 1 
     ax2.axhline(1.0, color='black', lw=1, linestyle='--')
@@ -802,7 +825,7 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     high_err_ratio.insert(0, high_err_ratio[0])
 
     ax2.fill_between(nbins, low_err_ratio, high_err_ratio, step="pre", facecolor=(.25, .25, .25, 0), 
-                     edgecolor='darkgray', #(.8627, .8627, .8627, 1.0), 
+                     edgecolor='darkgray',  
                      hatch='.....', 
                      linewidth=0.0, zorder=1)
     
@@ -811,14 +834,14 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     else: 
         ax2.set_xlabel(var, fontsize=15)
         
-    ax2.set_ylabel("DATA / (MC+EXT)", fontsize=15)
+    ax2.set_ylabel("Data / Prediction", fontsize=14)
     
     #ax2.set_yticks([0.5, 0.75, 1, 1.25, 1.5])
     #ax1.set_xticks([0, 1])
     #ax2.set_xticks([0, 1])
     
     if ncol: 
-        ax1.legend(prop={"size":10}, ncol=ncol, frameon=False)
+        ax1.legend(prop={"size":10}, ncol=ncol, frameon=False, loc='upper right')#bbox_to_anchor=(.95, 0.51))
         
     else:
         ax1.legend(prop={"size":10}, ncol=3, frameon=False)
@@ -841,13 +864,18 @@ def plot_data(var, nbins, xlow, xhigh, cuts, datasets, isrun3, bdt_scale=None, s
     
     if text: 
         ax1.text(xtext, ytext, text, #text+"\n$\\chi^{2}$/n = "+str(round(chi2, 2))+"/"+str(len(b)-1), 
-                 fontsize='x-large', horizontalalignment='right')
+                 fontsize=13.5, horizontalalignment='left')
+        
+    if norm=='area': 
+        ax1.set_title("Area Normalized", fontsize=15)
     
     if save: 
         print('saving to: ', plots_path)
         plt.savefig(plots_path+var+"_"+save_label+".svg", bbox_inches='tight')#, dpi=1000) 
 
-    plt.show()
+    #plt.show()
+    
+    #display(fig)
     
     d = {
         #'percent_errors': percent_errors, 

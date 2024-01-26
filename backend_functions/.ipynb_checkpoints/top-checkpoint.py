@@ -149,7 +149,7 @@ nue_NC = 'swtrig_pre==1 and ((nu_pdg==12 or nu_pdg==-12) and ccnc==1)'
 nue_CCother = 'swtrig_pre==1 and (((nu_pdg==12 and ccnc==0) and (nproton==0 or npi0>0 or npion>0)) or (nu_pdg==-12 and ccnc==0 and (nproton==0 or npion>0 or npi0>0)))'
 
 # less specific categories 
-nue_other = 'swtrig_pre==1 and (((nu_pdg==12 or nu_pdg==-12) and ccnc==1) or (((nu_pdg==12 and ccnc==0) and (nproton==0 or npi0>0 or npion>0)) or (nu_pdg==-12 and ccnc==0)))'
+nue_other = 'swtrig_pre==1 and (((nu_pdg==12 or nu_pdg==-12) and ccnc==1) or (( (nu_pdg==12 or nu_pdg==-12) and ccnc==0) and (nproton==0 or npi0>0 or npion>0)))'
 numu_Npi0 = 'swtrig_pre==1 and ( (nu_pdg==14 or nu_pdg==-14) and npi0>=1)'
 numu_0pi0 = 'swtrig_pre==1 and ( (nu_pdg==14 or nu_pdg==-14) and npi0==0)'
 
@@ -174,19 +174,62 @@ labels = {
     'nue_NC': ['$\\nu_e$ NC', '#B8FF33'], 
     'outfv' : ['Out FV', 'orchid'], 
     'ext' : ['EXT', 'lightpink'],
-    'nue_other' : ['$\\nu_e$ / $\\overline{\\nu_e}$  other', '#33db09'], 
-    'numu_Npi0' : ['$\\nu_\\mu$ / $\\overline{\\nu_\\mu}$  $\pi^{0}$', '#EE1B1B'], 
-    'numu_0pi0' : ['$\\nu_\\mu$ / $\\overline{\\nu_\\mu}$  other', '#437ED8'],
+    'nue_other' : ['$\\nu_e$ / $\\overline{\\nu}_e$  other', '#33db09'], 
+    'numu_Npi0' : ['$\\nu_\\mu$ / $\\overline{\\nu}_\\mu$  $\pi^{0}$', '#EE1B1B'], 
+    'numu_0pi0' : ['$\\nu_\\mu$ / $\\overline{\\nu}_\\mu$  other', '#437ED8'],
     'nuebar_1eNp' : ['$\\bar{\\nu}_e$ CC0$\pi$Np', 'gold']
 }
+
+########################################################################
+# get rid of 30 MeV threshold on visible energy 
+def vis_e_fix(df): 
+    
+    elec_e = np.array(df.elec_e)
+    elec_ke = [0 for i in range(len(df))]
+    
+    # if electron energy is filled
+    for i in range(len(elec_e)): 
+        if elec_e[i] > 0: 
+            elec_ke[i] = elec_e - 0.000511
+            
+    df['elec_ke'] = elec_ke
+    
+    print('added electron kinetic energy')
+    
+    E_vis = np.array(df.true_e_visible)
+    E_vis_new = [0 for i in range(len(E_vis))]
+
+    for i in range(len(E_vis)): 
+    
+        # for electrons above the 30 MeV threshold - do nothing 
+        if elec_ke[i] > 0.03: 
+            E_vis_new[i] = E_vis[i]
+
+        # for electrons below the 30 MeV threshold - add to the visible energy 
+        elif 0<elec_ke[i]<=0.03: 
+            E_vis_new[i] = E_vis[i] + elec_ke[i] 
+            
+    df['true_e_visible2'] = E_vis_new
+    
+    print('added new visible energy')
+    
+    return df
+
 ########################################################################
 # function to properly scale the RHC Run 3 (before & after software trigger change)
-def pot_scale(df, df_type, ISRUN3): 
+def pot_scale(df, df_type, ISRUN3, tune=True): 
     
-    print('Adding pot_scale column using dirt & EXT tune....')
+    if tune: 
+        print('Adding pot_scale column using dirt & EXT tune....')
+
+        dirt_tune = parameters(ISRUN3)['dirt_tune']
+        ext_tune = parameters(ISRUN3)['ext_tune']
     
-    dirt_tune = parameters(ISRUN3)['dirt_tune']
-    ext_tune = parameters(ISRUN3)['ext_tune']
+    else: 
+        print('Adding pot_scale column without dirt & EXT tune....')
+
+        dirt_tune = 1
+        ext_tune = 1     
     
     if ISRUN3: 
 
@@ -350,6 +393,27 @@ intrinsic_detvar_run3_rhc = {
     
 }
 ########################################################################
+# corrected visible energy variable - account for electrons below 30 MeV 
+def visible_energy_nothres(df): 
+    
+    df['elec_ke'] = df.elec_e - 0.000511
+    elec_ke = list(df['elec_ke'])
+
+    E_vis = np.array(df.true_e_visible)
+    E_vis_new = [0 for i in range(len(E_vis))]
+
+    for i in range(len(E_vis)): 
+    
+        # for electrons above the 30 MeV threshold - do nothing 
+        if elec_ke[i] > 0.03 or elec_ke[i] < 0: 
+            E_vis_new[i] = E_vis[i]
+
+        # for electrons below the 30 MeV threshold - add to the total visible energy 
+        elif 0<elec_ke[i]<=0.03: 
+            E_vis_new[i] = E_vis[i] + elec_ke[i] 
+
+    df['true_e_visible2'] = E_vis_new
+########################################################################
 # scales to standard overlay 
 def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweight_data', genie_sys=None):
     
@@ -360,14 +424,16 @@ def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweigh
     
     variables = ["swtrig_pre", 'run', "nu_pdg", "ccnc", "nproton", "npion", "npi0", 
                 "true_nu_vtx_x", "true_nu_vtx_y", "true_nu_vtx_z", "ppfx_cv", "weightSplineTimesTune", "weightTune",
-                "nslice"] 
+                "nslice", 
+                 "elec_e", "shr_energy_cali", 
+                 "NeutrinoEnergy2", "true_e_visible", 
+                 "opening_angle", "tksh_angle"] 
     
-    if var=="NeutrinoEnergy2_GeV": 
-        variables.append('NeutrinoEnergy2')
-        
-    elif var not in variables: 
-        variables.append(var)
     
+    if var not in variables: 
+        if var is not "true_e_visible2": 
+            if var is not "NeutrinoEnergy2_GeV": 
+                variables.append(var)
     
     if genie_sys: 
         if isinstance(genie_sys, list): 
@@ -396,14 +462,18 @@ def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweigh
                              & (10 <= df.true_nu_vtx_z) & (df.true_nu_vtx_z <= 1026), 
                                True, False)
     
-    if var == 'NeutrinoEnergy2_GeV': 
-        df['NeutrinoEnergy2_GeV'] = df['NeutrinoEnergy2']/1000
-
+    df['NeutrinoEnergy2_GeV'] = df['NeutrinoEnergy2']/1000
+    visible_energy_nothres(df)
+    
     
     df_signal = df.query('is_signal==True').copy()
     df_signal = pot_scale(df_signal, 'intrinsic', ISRUN3)
+    
+    #print('Tune weight is off!')
+    #df_signal['weightSplineTimesTune'] = [1 for x in range(len(df_signal))]
+    #df_signal['weightTune'] = [1 for x in range(len(df_signal))]
 
-    df_signal['totweight_data'] = df_signal['ppfx_cv']*df_signal['weightSplineTimesTune']*df_signal['pot_scale']
+    df_signal['totweight_data'] = df_signal['ppfx_cv']*df_signal['pot_scale']*df_signal['weightSplineTimesTune']
     df_signal['totweight_intrinsic'] = df_signal['ppfx_cv']*df_signal['weightSplineTimesTune']
     
     
@@ -460,6 +530,7 @@ def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweigh
     
 ########################################################################
 # parameters for the xsec variables 
+# Outdated
 def xsec_variables(xvar, ISRUN3): 
     
     print("Need to update before using these! ")
