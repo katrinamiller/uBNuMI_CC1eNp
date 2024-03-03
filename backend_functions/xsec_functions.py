@@ -227,7 +227,7 @@ def truth_and_eff(true_var, bins, xlower, xupper, cut, datasets, isrun3, pot=Non
         ax2.set_ylim(0, ymax2)
         
     if save: 
-        plt.savefig("/uboone/data/users/kmiller/searchingfornues_v33/v08_00_00_33/plots/"+horn+"/"+horn+"_"+true_var+"truth_eff.pdf", 
+        plt.savefig("/exp/uboone/data/users/kmiller/searchingfornues_v33/v08_00_00_33/plots/"+horn+"/"+horn+"_"+true_var+"truth_eff.pdf", 
            transparent=True, bbox_inches='tight')    
         
     plt.tight_layout()
@@ -276,7 +276,7 @@ def comb_truth_and_eff(true_var, bins, df_infv, df_sel, xlbl, save):
     plt.title('FHC + RHC (PROJECTED)', fontsize=15)
     plt.legend(fontsize=15)
     if save:
-        plt.savefig("/uboone/data/users/kmiller/searchingfornues_v33/v08_00_00_33/plots/both/both_truth_sig.pdf", transparent=True, bbox_inches='tight')    
+        plt.savefig("/exp/uboone/data/users/kmiller/searchingfornues_v33/v08_00_00_33/plots/both/both_truth_sig.pdf", transparent=True, bbox_inches='tight')    
         
     plt.tight_layout()
     plt.show()  
@@ -319,7 +319,7 @@ def comb_truth_and_eff(true_var, bins, df_infv, df_sel, xlbl, save):
     plt.legend(fontsize=15)
 
     if save:
-            plt.savefig("/uboone/data/users/kmiller/searchingfornues_v33/v08_00_00_33/plots/both/both_truth_eff.pdf", transparent=True, bbox_inches='tight')    
+            plt.savefig("/exp/uboone/data/users/kmiller/searchingfornues_v33/v08_00_00_33/plots/both/both_truth_eff.pdf", transparent=True, bbox_inches='tight')    
         
     plt.tight_layout()
     plt.show() 

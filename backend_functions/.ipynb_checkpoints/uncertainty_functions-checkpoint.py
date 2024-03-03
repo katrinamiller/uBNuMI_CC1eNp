@@ -711,4 +711,68 @@ def PoissonRandomNumber(seed, mean=1.0, size=None):
     # print(weight_poisson)
     
     return weight_poisson
+
+########################################################################
+def flugg_reweight(df, isrun3): 
+    
+    horn_current = '' 
+    if isrun3: 
+        horn_current = "RHC"
+    else: 
+        horn_current = "FHC"
+    
+    flavor = {14: 'numu', -14: 'numubar', 12: 'nue', -12:'nuebar'}
+    
+    energy = list(df.nu_e)
+    pdg = list(df.nu_pdg)
+    
+    file = uproot.open('/uboone/data/users/kmiller/uBNuMI_CCNp/flux/flugg_ratios_ppfx.root')
+    
+    flugg_weights = []
+    
+    for i in range(len(energy)): 
+        
+        #print("i = ", i)
+        #print('energy = ', energy[i])
+        #print('flavor = ', flavor[pdg[i]])
+        
+        hist = file["ratio_" + flavor[pdg[i]] + "_" + horn_current]
+        energy_bins = (hist.edges)
+        weights = hist.values
+        
+        #print('hist name = ', "ratio_" + flavor[pdg[i]] + "_" + horn_current)
+        #print('energy bins = ', energy_bins)
+        #print('weights = ', weights)
+        
+        # loop over the energy bins 
+        for j in range(len(energy_bins)-1): 
+            
+            if j != len(energy_bins)-2:
+                
+                if energy[i] >= energy_bins[j] and energy[i] < energy_bins[j+1]: 
+                    flugg_weights.append(weights[j])
+                    #print('energy bin ', energy_bins[j], " to ", energy_bins[j+1], "; weight = ", weights[j])
+                    break
+                    
+                else: 
+                    continue
+            
+            elif j == len(energy_bins)-2: # need inclusive top bin for the last bin 
+                
+                if energy[i] >= energy_bins[j] and energy[i] <= energy_bins[j+1]: 
+                    flugg_weights.append(weights[j])
+                    #print('energy bin ', energy_bins[j], " to ", energy_bins[j+1], "; weight = ", weights[j])
+                    
+                else: 
+                    print(i, "No weights exist for this neutrino energy!", energy[i])
+                    break 
+                    
+    df['flugg_reweight'] = flugg_weights
+    return df 
+    
+    
+    
+    
+    
+        
     

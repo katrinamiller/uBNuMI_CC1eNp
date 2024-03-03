@@ -23,7 +23,7 @@ sys.path.insert(0, 'backend_functions')
 
 import NuMIDetSys
 
-# importlib.reload(NuMIDetSys)
+importlib.reload(NuMIDetSys)
 NuMIDetSysWeights = NuMIDetSys.NuMIDetSys()
 
 import top 
@@ -33,8 +33,8 @@ from top import *
 import uncertainty_functions
 from uncertainty_functions import * 
 
-import ROOT
-from ROOT import TH1F, TH2F, TDirectory, TH1D
+#import ROOT
+#from ROOT import TH1F, TH2F, TDirectory, TH1D
 
 from IPython.display import display
 
@@ -129,7 +129,7 @@ def offline_flux_weights(df, ISRUN3):
         print("No ppfx maps for RHC!")
     
     else: 
-        f = ROOT.TFile.Open("/uboone/data/users/kmiller/uBNuMI_CCNp/ppfx_maps.root", "READ")
+        f = ROOT.TFile.Open("/exp/uboone/data/users/kmiller/uBNuMI_CCNp/ppfx_maps.root", "READ")
     
     numu_map = f.Get("numu_ratio")
     numubar_map = f.Get("numubar_ratio")
@@ -217,7 +217,7 @@ def event_counts(datasets, xvar, xmin, xmax, cuts, ext_norm, mc_norm, plot_data=
 ########################################################################
 # Plot MC, normalized to beam on, overlay, OR projected 
 # NEED TO ADD: GENIE UNISIMS, NON-nueCC DET SYS
-def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', save=False, save_label=None, log=False, x_label=None, xmax=None, y_label=None, ymax=None, bdt_scale=None, text=None, xtext=None, ytext=None, osc=None, plot_bkgd=False, sys=None, x_ticks=None, bin_norm=1.0):
+def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', save=False, save_label=None, log=False, x_label=None, xmax=None, y_label=None, ymax=None, bdt_scale=None, text=None, xtext=None, ytext=None, osc=None, plot_bkgd=False, sys=None, x_ticks=None, is_flugg_reweight=False, bin_norm=1.0):
     
     
     # set the POT & plots_path for plotting
@@ -254,7 +254,10 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
 
     if (norm=='data'): 
         
-        mc_norm = 'totweight_data'
+        if is_flugg_reweight: 
+            mc_norm = 'totweight_data_flugg'
+        else: 
+            mc_norm = 'totweight_data'
         ext_norm = 'pot_scale'
         
     else: 

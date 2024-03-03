@@ -23,7 +23,7 @@ sys.path.insert(0, 'backend_functions')
 
 import NuMIDetSys
 
-# importlib.reload(NuMIDetSys)
+importlib.reload(NuMIDetSys)
 NuMIDetSysWeights = NuMIDetSys.NuMIDetSys()
 
 import top 
@@ -33,8 +33,8 @@ from top import *
 import uncertainty_functions
 from uncertainty_functions import * 
 
-import ROOT
-from ROOT import TH1F, TH2F, TDirectory, TH1D
+#import ROOT
+#from ROOT import TH1F, TH2F, TDirectory, TH1D
 
 from IPython.display import display
 
@@ -96,32 +96,6 @@ def true_opening_angle(df):
     
     return df
 ########################################################################
-# add angles in beam & detector coordinates
-def addAngles(df): 
-    
-    ## rotation matrix -- convert detector to beam coordinates
-    R = [
-        [0.921,   4.625e-05,     -0.3895],
-        [0.02271,    0.9983,     0.05383],
-        [0.3888,   -0.05843,      0.9195]
-    ]
-    det_origin_beamcoor = [5502.0, 7259.0,  67270.0]
-     
-    # angles in detector coordinates
-    df['thdet'] = np.arctan2(((df['true_nu_px']*df['true_nu_px'])+(df['true_nu_py']*df['true_nu_py']))**(1/2), df['true_nu_pz'])*(180/math.pi)
-    df['phidet'] = np.arctan2(df['true_nu_py'], df['true_nu_px'])*(180/math.pi)
-        
-    # get true momentum in beam coordinates
-    df['true_nu_px_beam'] = R[0][0]*df['true_nu_px'] + R[0][1]*df['true_nu_py'] + R[0][2]*df['true_nu_pz']
-    df['true_nu_py_beam'] = R[1][0]*df['true_nu_px'] + R[1][1]*df['true_nu_py'] + R[1][2]*df['true_nu_pz']
-    df['true_nu_pz_beam'] = R[2][0]*df['true_nu_px'] + R[2][1]*df['true_nu_py'] + R[2][2]*df['true_nu_pz']
-    
-    # angles in beam coordinates
-    df['thbeam'] = np.arctan2(((df['true_nu_px_beam']*df['true_nu_px_beam'])+(df['true_nu_py_beam']*df['true_nu_py_beam']))**(1/2), df['true_nu_pz_beam'])*(180/math.pi)
-    df['phibeam'] = np.arctan2(df['true_nu_py_beam'], df['true_nu_px_beam'])*(180/math.pi)
-        
-    return df
-########################################################################
 # use offline flux weights
 def offline_flux_weights(df, ISRUN3): 
     
@@ -129,7 +103,7 @@ def offline_flux_weights(df, ISRUN3):
         print("No ppfx maps for RHC!")
     
     else: 
-        f = ROOT.TFile.Open("/uboone/data/users/kmiller/uBNuMI_CCNp/ppfx_maps.root", "READ")
+        f = ROOT.TFile.Open("/exp/uboone/data/users/kmiller/uBNuMI_CCNp/ppfx_maps.root", "READ")
     
     numu_map = f.Get("numu_ratio")
     numubar_map = f.Get("numubar_ratio")
@@ -217,7 +191,7 @@ def event_counts(datasets, xvar, xmin, xmax, cuts, ext_norm, mc_norm, plot_data=
 ########################################################################
 # Plot MC, normalized to beam on, overlay, OR projected 
 # NEED TO ADD: GENIE UNISIMS, NON-nueCC DET SYS
-def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', save=False, save_label=None, log=False, x_label=None, xmax=None, y_label=None, ymax=None, bdt_scale=None, text=None, xtext=None, ytext=None, osc=None, plot_bkgd=False, sys=None, x_ticks=None, bin_norm=1.0):
+def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', save=False, save_label=None, log=False, x_label=None, xmax=None, y_label=None, ymax=None, bdt_scale=None, text=None, xtext=None, ytext=None, osc=None, plot_bkgd=False, sys=None, x_ticks=None, is_flugg_reweight=False, bin_norm=1.0):
     
     
     # set the POT & plots_path for plotting
@@ -254,7 +228,10 @@ def plot_mc(var, nbins, xlow, xhigh, cuts, datasets, isrun3, norm='overlay', sav
 
     if (norm=='data'): 
         
-        mc_norm = 'totweight_data'
+        if is_flugg_reweight: 
+            mc_norm = 'totweight_data_flugg'
+        else: 
+            mc_norm = 'totweight_data'
         ext_norm = 'pot_scale'
         
     else: 

@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import uproot
 
+import uncertainty_functions 
+
 import matplotlib.pyplot as plt
 
 
@@ -73,9 +75,9 @@ def parameters(ISRUN3):
    # FHC
     if not ISRUN3: 
         
-        plots_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/plots/fhc/"
-        cv_ntuple_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run1/cv_slimmed/qualcuts/" 
-        full_ntuple_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run1/cv/"
+        plots_path = "/exp/uboone/data/users/kmiller/uBNuMI_CCNp/plots/fhc/"
+        cv_ntuple_path = "/exp/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run1/cv_slimmed/qualcuts/" 
+        full_ntuple_path = "/exp/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run1/cv/"
         
         dirt_tune = 0.65 # validated
         
@@ -92,12 +94,12 @@ def parameters(ISRUN3):
     
     # RHC 
     else: 
-        #plots_path = "/uboone/data/users/kmiller/searchingfornues_v33/v08_00_00_33/plots/rhc/"
-        #nue_path = "/uboone/data/users/kmiller/ntuples/run3b/"
+        #plots_path = "/exp/uboone/data/users/kmiller/searchingfornues_v33/v08_00_00_33/plots/rhc/"
+        #nue_path = "/exp/uboone/data/users/kmiller/ntuples/run3b/"
         
-        plots_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/plots/rhc/"
-        cv_ntuple_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run3b/cv_slimmed/qualcuts/"
-        full_ntuple_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run3b/cv/"
+        plots_path = "/exp/uboone/data/users/kmiller/uBNuMI_CCNp/plots/rhc/"
+        cv_ntuple_path = "/exp/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run3b/cv_slimmed/qualcuts/"
+        full_ntuple_path = "/exp/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/run3b/cv/"
         
         dirt_tune = 0.45 # validated
         
@@ -413,9 +415,126 @@ def visible_energy_nothres(df):
             E_vis_new[i] = E_vis[i] + elec_ke[i] 
 
     df['true_e_visible2'] = E_vis_new
+    
+########################################################################
+def flugg_reweight(df, isrun3): 
+    
+    horn_current = '' 
+    if isrun3: 
+        horn_current = "RHC"
+    else: 
+        horn_current = "FHC"
+    
+    flavor = {14: 'numu', -14: 'numubar', 12: 'nue', -12:'nuebar'}
+    
+    energy = list(df.nu_e)
+    angle = list(df.thbeam)
+    pdg = list(df.nu_pdg)
+    
+    #file = uproot.open('/exp/uboone/data/users/kmiller/uBNuMI_CCNp/flux/flugg_ratios_ppfx.root')
+    file = uproot.open('/exp/uboone/data/users/kmiller/uBNuMI_CCNp/flux/flugg_2dratios_ppfx.root')
+    
+    flugg_weights = []
+    
+    for i in range(len(pdg)): 
+        
+        #print("i = ", i)
+        #print('energy = ', energy[i])
+        #print('flavor = ', flavor[pdg[i]])
+        
+        #hist = file["ratio_" + flavor[pdg[i]] + "_" + horn_current]
+        hist = file["flugg_" + flavor[pdg[i]] + "_" + horn_current + "_" + "ratio"]
+        
+        # x-axis
+        energy_bins = (hist.edges)[0]
+        
+        #y-axis
+        theta_bins = (hist.edges)[1]
+        
+        weights = hist.values
+        
+        x = None
+        y = None
+        
+        #print('hist name = ', "flugg_" + flavor[pdg[i]] + "_" + horn_current + "_" + "ratio")
+        #print('energy bins = ', energy_bins)
+        #print('theta bins = ', theta_bins)
+        #print('weights = ', weights)
+        
+        # ENERGY LOOP OVER BINS 
+        for j in range(len(energy_bins)-1): 
+
+            # if energy > 10 GeV 
+            if energy[i] > 10.0: 
+                break 
+            
+            # for all other bins except last bin 
+            if j != len(energy_bins)-2:
+                if energy[i] >= energy_bins[j] and energy[i] < energy_bins[j+1]: # if the energy is inside the energy bin 
+                    #print('testing energy bins:', theta_bins[j], theta_bins[j+1])
+                    x = j
+                    break
+                else: 
+                    continue
+
+            # need inclusive top edge for the last bin 
+            elif j == len(energy_bins)-2: 
+                
+                if energy[i] >= energy_bins[j] and energy[i] <= energy_bins[j+1]: 
+                    #print('testing energy bins:', theta_bins[j], theta_bins[j+1])
+                    x = j
+                    break
+                    #flugg_weights.append(weights[j])
+                    #print('energy bin ', energy_bins[j], " to ", energy_bins[j+1], "; weight = ", weights[j])
+                    
+                else: 
+                    print(i, "No weights exist for this neutrino energy!", energy[i])
+                    break 
+                    
+            
+        for k in range(len(theta_bins)-1): 
+
+            # if energy > 10 GeV 
+            if energy[i] > 10.0: 
+                break 
+
+            #print('angle = ', angle[i])
+            
+            # for all bins except the last bin 
+            if k != len(theta_bins)-2: 
+                if angle[i] >= theta_bins[k] and angle[i] < theta_bins[k+1]: 
+                    #print('testing theta bins:', theta_bins[k], theta_bins[k+1])
+                    y = k 
+                    break 
+                else: 
+                    continue
+                    
+            # last bin - inclusive top edge 
+            elif k == len(theta_bins)-2: 
+                if angle[i] >= theta_bins[k] and angle[i] <= theta_bins[k+1]: 
+                    #print('testing theta bins:', theta_bins[k], theta_bins[k+1])
+                    y = k
+                    break
+            
+                else: 
+                    print(i, "No weights exist for this angle!", angle[i])
+                    break 
+                
+        if energy[i] > 10.0: 
+            flugg_weights.append(1.0)
+        else: 
+            flugg_weights.append(weights[x][y])
+            
+        x = None
+        y = None
+                    
+    df['flugg_reweight'] = flugg_weights
+    return df 
+    
+    
 ########################################################################
 # scales to standard overlay 
-def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweight_data', genie_sys=None):
+def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweight_data', genie_sys=None, isFlugg=False):
     
     # print('WARNING: generated_signal now scales to beam on POT unless otherwise specified! --> make sure to update functions using this!')
         
@@ -427,12 +546,12 @@ def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweigh
                 "nslice", 
                  "elec_e", "shr_energy_cali", 
                  "NeutrinoEnergy2", "true_e_visible", 
-                 "opening_angle", "tksh_angle"] 
+                 "opening_angle", "tksh_angle", "nu_e", "true_nu_px", "true_nu_py", "true_nu_pz"] 
     
     
     if var not in variables: 
-        if var is not "true_e_visible2": 
-            if var is not "NeutrinoEnergy2_GeV": 
+        if var != "true_e_visible2": 
+            if var != "NeutrinoEnergy2_GeV": 
                 variables.append(var)
     
     if genie_sys: 
@@ -465,6 +584,11 @@ def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweigh
     df['NeutrinoEnergy2_GeV'] = df['NeutrinoEnergy2']/1000
     visible_energy_nothres(df)
     
+    if isFlugg: 
+        print('Reweighting with flugg ratios....')
+        df = addAngles(df)
+        df = flugg_reweight(df, ISRUN3)
+    
     
     df_signal = df.query('is_signal==True').copy()
     df_signal = pot_scale(df_signal, 'intrinsic', ISRUN3)
@@ -475,6 +599,9 @@ def generated_signal(ISRUN3, var, bins, xlow, xhigh, cuts=None, weight='totweigh
 
     df_signal['totweight_data'] = df_signal['ppfx_cv']*df_signal['pot_scale']*df_signal['weightSplineTimesTune']
     df_signal['totweight_intrinsic'] = df_signal['ppfx_cv']*df_signal['weightSplineTimesTune']
+    
+    if isFlugg:
+        df_signal['totweight_data_flugg'] = df_signal['ppfx_cv']*df_signal['pot_scale']*df_signal['weightSplineTimesTune']*df_signal['flugg_reweight']
     
     
     if genie_sys=='weightsGenie': 
@@ -587,4 +714,31 @@ def xsec_variables(xvar, ISRUN3):
     }
     
     return d
+
+########################################################################
+# add angles in beam & detector coordinates
+def addAngles(df): 
+    
+    ## rotation matrix -- convert detector to beam coordinates
+    R = [
+        [0.921,   4.625e-05,     -0.3895],
+        [0.02271,    0.9983,     0.05383],
+        [0.3888,   -0.05843,      0.9195]
+    ]
+    det_origin_beamcoor = [5502.0, 7259.0,  67270.0]
+     
+    # angles in detector coordinates
+    df['thdet'] = np.arctan2(((df['true_nu_px']*df['true_nu_px'])+(df['true_nu_py']*df['true_nu_py']))**(1/2), df['true_nu_pz'])*(180/math.pi)
+    df['phidet'] = np.arctan2(df['true_nu_py'], df['true_nu_px'])*(180/math.pi)
+        
+    # get true momentum in beam coordinates
+    df['true_nu_px_beam'] = R[0][0]*df['true_nu_px'] + R[0][1]*df['true_nu_py'] + R[0][2]*df['true_nu_pz']
+    df['true_nu_py_beam'] = R[1][0]*df['true_nu_px'] + R[1][1]*df['true_nu_py'] + R[1][2]*df['true_nu_pz']
+    df['true_nu_pz_beam'] = R[2][0]*df['true_nu_px'] + R[2][1]*df['true_nu_py'] + R[2][2]*df['true_nu_pz']
+    
+    # angles in beam coordinates
+    df['thbeam'] = np.arctan2(((df['true_nu_px_beam']*df['true_nu_px_beam'])+(df['true_nu_py_beam']*df['true_nu_py_beam']))**(1/2), df['true_nu_pz_beam'])*(180/math.pi)
+    df['phibeam'] = np.arctan2(df['true_nu_py_beam'], df['true_nu_px_beam'])*(180/math.pi)
+        
+    return df
 

@@ -23,8 +23,8 @@ import awkward
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import ROOT
-from ROOT import TH1F, TDirectory, TH1D
+#import ROOT
+#from ROOT import TH1F, TDirectory, TH1D
 
 import os
 
@@ -84,7 +84,7 @@ class NuMIDetSys:
             intrinsic_dict = intrinsic_detvar_run3_rhc
            
             
-        input_path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/"+run+"/systematics/detvar/" #+ "slimmed/qualcuts/"
+        input_path = "/exp/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/"+run+"/systematics/detvar/" #+ "slimmed/qualcuts/"
     
         beamon_pot = parameters(isrun3)['beamon_pot']
        
@@ -252,7 +252,7 @@ class NuMIDetSys:
             d = detvar_run1_fhc
 
             
-        path = "/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/"+run+"/systematics/detvar/" #+ "slimmed/qualcuts/"
+        path = "/exp/uboone/data/users/kmiller/uBNuMI_CCNp/ntuples/"+run+"/systematics/detvar/" #+ "slimmed/qualcuts/"
         
         # always scale to data pot
         #pot_scaling = parameters(ISRUN3)['beamon_pot'] / d['CV']
